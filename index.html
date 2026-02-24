@@ -34,6 +34,7 @@ input.inline-edit{width:100%;border:none;outline:none;background:transparent;fon
   <button id="editBtn" class="control-btn">편집</button>
 </div>
 
+<div id="statusBar" style="display:none;padding:10px 12px;font-size:14px;"></div>
 <div id="boardWrapper" class="board-wrapper"></div>
 </div>
 
@@ -50,6 +51,26 @@ function toNumber(value){
   return Number.isFinite(num)?num:0;
 }
 
+
+function setStatus(message,type="info"){
+  const bar=document.getElementById("statusBar");
+  if(!message){
+    bar.style.display="none";
+    bar.textContent="";
+    return;
+  }
+  const palette={
+    info:{bg:"#e9f0f8",fg:"#2f5fa7"},
+    warn:{bg:"#fff2cc",fg:"#8a6d1f"},
+    error:{bg:"#fbe4e6",fg:"#9f2d35"},
+    ok:{bg:"#e8f5e9",fg:"#2e7d32"}
+  };
+  const p=palette[type]||palette.info;
+  bar.style.display="block";
+  bar.style.background=p.bg;
+  bar.style.color=p.fg;
+  bar.textContent=message;
+}
 const data={};
 for(let z=1;z<=5;z++){
   data[z]=[createBoard()];
@@ -71,10 +92,21 @@ function createBoard(){
 }
 
 async function loadData(){
-  const res=await fetch(SCRIPT_URL);
-  const rows=await res.json();
+  try{
+    const res=await fetch(SCRIPT_URL);
+    const rows=await res.json();
 
-  rows.forEach(row=>{
+    if(!Array.isArray(rows)){
+      throw new Error("응답 형식 오류");
+    }
+
+    if(rows.length===0){
+      setStatus("SLOTS 시트에 데이터 행이 없습니다. 현재 Apps Script는 기존 행만 수정(update)하므로, zone/board/slot_no 초기 행을 먼저 넣어야 저장됩니다.","warn");
+    }else{
+      setStatus("");
+    }
+
+    rows.forEach(row=>{
     const z=row.zone;
     const b=row.board-1;
     const s=row.slot_no-1;
@@ -91,7 +123,11 @@ async function loadData(){
     }
   });
 
-  render();
+    render();
+  }catch(err){
+    console.error(err);
+    setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
+  }
 }
 
 function render(){
@@ -188,6 +224,9 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
 
 async function saveAll(){
   const keys=Object.keys(dirtyMap);
+  if(keys.length===0) return;
+
+  const failed=[];
   for(const key of keys){
     const [z,b,s]=key.split("-");
     const row=data[z][b][s];
@@ -208,9 +247,17 @@ async function saveAll(){
     const updateText=await updateRes.text();
     if(updateText!=="UPDATED"){
       console.warn("updateSlot 실패:",key,updateText);
+      failed.push(`${key}:${updateText}`);
     }
   }
+  if(failed.length){
+    setStatus(`저장 실패 ${failed.length}건: ${failed[0]}`,"error");
+    alert("저장 실패가 발생했습니다. 콘솔(F12)에서 실패 상세를 확인하세요.\n가장 흔한 원인: SLOTS에 초기 zone/board/slot_no 행이 없음.");
+    return;
+  }
+
   dirtyMap={};
+  setStatus("저장 완료","ok");
 }
 
 document.getElementById("editBtn").onclick=async ()=>{
