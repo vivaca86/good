@@ -165,9 +165,8 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
 
     if(diff!==0){
       const type=diff>0?"IN":"OUT";
-      await fetch(SCRIPT_URL,{
+      const logRes=await fetch(SCRIPT_URL,{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           action:"logUsage",
           zone:currentZone,
@@ -177,6 +176,8 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
           qty:Math.abs(diff)
         })
       });
+      const logText=await logRes.text();
+      if(logText!=="LOGGED") console.warn("logUsage 실패:",logText);
     }
   }
 
@@ -191,9 +192,8 @@ async function saveAll(){
     const [z,b,s]=key.split("-");
     const row=data[z][b][s];
 
-    await fetch(SCRIPT_URL,{
+    const updateRes=await fetch(SCRIPT_URL,{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         action:"updateSlot",
         zone:Number(z),
@@ -205,6 +205,10 @@ async function saveAll(){
         qty:row.qty
       })
     });
+    const updateText=await updateRes.text();
+    if(updateText!=="UPDATED"){
+      console.warn("updateSlot 실패:",key,updateText);
+    }
   }
   dirtyMap={};
 }
