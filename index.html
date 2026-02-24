@@ -43,12 +43,23 @@ const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxk6IYQReO6S4F8-pr0spW
 const slotsPerBoard=12;
 let currentZone=1;
 let editMode=false;
-let selectedCell=null;
 let dirtyMap={};
+
+function toNumber(value){
+  const num=Number(value);
+  return Number.isFinite(num)?num:0;
+}
 
 const data={};
 for(let z=1;z<=5;z++){
   data[z]=[createBoard()];
+}
+
+function ensureBoard(zone, boardIndex){
+  if(!data[zone]) return;
+  while(data[zone].length<=boardIndex){
+    data[zone].push(createBoard());
+  }
 }
 
 function createBoard(){
@@ -68,7 +79,9 @@ async function loadData(){
     const b=row.board-1;
     const s=row.slot_no-1;
 
-    if(data[z]&&data[z][b]){
+    ensureBoard(z,b);
+
+    if(data[z]&&data[z][b]&&data[z][b][s]){
       data[z][b][s]={
         code:row.code||"",
         name:row.name||"",
@@ -132,10 +145,10 @@ function editCell(cell,boardIndex,rowIndex,field){
   cell.appendChild(input);
   input.focus();
 
-  input.onblur=()=>{
-    const newValue=input.value;
-    processChange(boardIndex,rowIndex,field,oldValue,newValue);
-    cell.textContent=newValue;
+  input.onblur=async ()=>{
+    const newValue=input.value.trim();
+    const saved=await processChange(boardIndex,rowIndex,field,oldValue,newValue);
+    cell.textContent=saved?data[currentZone][boardIndex][rowIndex][field]:oldValue;
   };
 }
 
@@ -145,14 +158,14 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
   if(field==="qty"){
     if(!row.code){
       alert("코드를 먼저 입력하세요");
-      return;
+      return false;
     }
 
-    const diff=parseInt(newValue||0)-parseInt(oldValue||0);
+    const diff=toNumber(newValue)-toNumber(oldValue);
 
     if(diff!==0){
       const type=diff>0?"IN":"OUT";
-      await fetch(SCRIPT_URL,{
+      const logRes=await fetch(SCRIPT_URL,{
         method:"POST",
         body:JSON.stringify({
           action:"logUsage",
@@ -163,11 +176,14 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
           qty:Math.abs(diff)
         })
       });
+      const logText=await logRes.text();
+      if(logText!=="LOGGED") console.warn("logUsage 실패:",logText);
     }
   }
 
-  row[field]=newValue;
+  row[field]=field==="qty"?String(toNumber(newValue)):newValue;
   dirtyMap[`${currentZone}-${boardIndex}-${rowIndex}`]=true;
+  return true;
 }
 
 async function saveAll(){
@@ -176,7 +192,7 @@ async function saveAll(){
     const [z,b,s]=key.split("-");
     const row=data[z][b][s];
 
-    await fetch(SCRIPT_URL,{
+    const updateRes=await fetch(SCRIPT_URL,{
       method:"POST",
       body:JSON.stringify({
         action:"updateSlot",
@@ -189,6 +205,10 @@ async function saveAll(){
         qty:row.qty
       })
     });
+    const updateText=await updateRes.text();
+    if(updateText!=="UPDATED"){
+      console.warn("updateSlot 실패:",key,updateText);
+    }
   }
   dirtyMap={};
 }
