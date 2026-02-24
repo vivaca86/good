@@ -39,7 +39,7 @@ input.inline-edit{width:100%;border:none;outline:none;background:transparent;fon
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbzNqqJkIEhuTGR4FOcrv0UUIfAi2oSt8Qm9vwyczAEfvWOJSQrbv-I5mx7MlQA8wzlE/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxk6IYQReO6S4F8-pr0spWviWFAW_PmQhMPPgVaBd4Gox1DK5MxQUi1fi9si_NBVZTB/exec";
 
 const slotsPerBoard=12;
 let currentZone=1;
@@ -100,11 +100,7 @@ async function loadData(){
       throw new Error("응답 형식 오류");
     }
 
-    if(rows.length===0){
-      setStatus("SLOTS 시트에 데이터 행이 없습니다. 현재 Apps Script는 기존 행만 수정(update)하므로, zone/board/slot_no 초기 행을 먼저 넣어야 저장됩니다.","warn");
-    }else{
-      setStatus("");
-    }
+    setStatus("");
 
     rows.forEach(row=>{
     const z=row.zone;
@@ -245,14 +241,14 @@ async function saveAll(){
       })
     });
     const updateText=await updateRes.text();
-    if(updateText!=="UPDATED"){
+    if(updateText!=="UPDATED" && updateText!=="CREATED"){
       console.warn("updateSlot 실패:",key,updateText);
       failed.push(`${key}:${updateText}`);
     }
   }
   if(failed.length){
     setStatus(`저장 실패 ${failed.length}건: ${failed[0]}`,"error");
-    alert("저장 실패가 발생했습니다. 콘솔(F12)에서 실패 상세를 확인하세요.\n가장 흔한 원인: SLOTS에 초기 zone/board/slot_no 행이 없음.");
+    alert("저장 실패가 발생했습니다. 콘솔(F12)에서 실패 상세를 확인하세요.");
     return;
   }
 
