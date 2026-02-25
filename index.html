@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#dbe6f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
 <title>재고 시스템 최종버전</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
@@ -57,6 +61,7 @@ td.selected-slot{background:#dff0ff !important;box-shadow:inset 0 0 0 2px #2f5fa
     <button id="pasteBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;">붙여넣기</button>
     <button id="clearBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;">슬롯 비우기</button>
     <button id="editBtn" class="control-btn primary-action">편집</button>
+    <button id="installBtn" class="control-btn" style="display:none;">앱 설치</button>
   </div>
 </div>
 
@@ -79,6 +84,7 @@ let dbZoneLoadError="";
 let selectedSlot=null;
 let clipboardData=null;
 let pendingLogs=[];
+let deferredInstallPrompt=null;
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -544,7 +550,44 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
   };
 });
 
+
+function setupPwaInstall(){
+  const btn=document.getElementById("installBtn");
+  if(!btn) return;
+
+  window.addEventListener("beforeinstallprompt",(e)=>{
+    e.preventDefault();
+    deferredInstallPrompt=e;
+    btn.style.display="inline-block";
+  });
+
+  btn.onclick=async ()=>{
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try{ await deferredInstallPrompt.userChoice; }catch(_){ }
+    deferredInstallPrompt=null;
+    btn.style.display="none";
+  };
+
+  window.addEventListener("appinstalled",()=>{
+    deferredInstallPrompt=null;
+    btn.style.display="none";
+    setStatus("앱 설치 완료","ok");
+  });
+}
+
+function registerServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('service-worker.js').catch((err)=>{
+      console.warn('SW 등록 실패:',err);
+    });
+  });
+}
+
 document.addEventListener("click",hideCellPreview);
+setupPwaInstall();
+registerServiceWorker();
 loadData();
 </script>
 </body>
