@@ -44,6 +44,7 @@ function doPost(e) {
   if (payload.action === 'logUsage') return appendLog(payload);
   if (payload.action === 'createBoard') return createBoardRows(payload);
   if (payload.action === 'deleteBoard') return deleteBoardRows(payload);
+  if (payload.action === 'getDbDiff') return getDbDiffRows();
 
   return ContentService.createTextOutput('NO_ACTION');
 }
@@ -162,4 +163,66 @@ function deleteBoardRows(payload) {
   sheet.getRange(1, 1, kept.length, kept[0].length).setValues(kept);
 
   return ContentService.createTextOutput('BOARD_DELETED');
+}
+
+
+// ============================
+// DB구역용: COMPARE diff>0 + DC 품명 조회
+// ============================
+function getDbDiffRows() {
+  const compareSheet = SpreadsheetApp.getActive().getSheetByName('COMPARE');
+  const dcSheet = SpreadsheetApp.getActive().getSheetByName('DC');
+
+  if (!compareSheet) {
+    return ContentService
+      .createTextOutput(JSON.stringify([]))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const compareData = compareSheet.getDataRange().getValues();
+  if (!compareData.length) {
+    return ContentService
+      .createTextOutput(JSON.stringify([]))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const compareHeaders = compareData[0].map(h => String(h).trim().toLowerCase());
+
+  const codeIdx = findHeaderIndex(compareHeaders, ['code', '코드'], 0);
+  const diffIdx = findHeaderIndex(compareHeaders, ['diff', '디프', '차이'], 1);
+
+  const nameByCode = {};
+  if (dcSheet) {
+    const dcData = dcSheet.getDataRange().getValues();
+    for (let i = 1; i < dcData.length; i++) {
+      const code = String(dcData[i][0] || '').trim();
+      const name = String(dcData[i][2] || '').trim();
+      if (code) nameByCode[code] = name;
+    }
+  }
+
+  const rows = [];
+  for (let i = 1; i < compareData.length; i++) {
+    const code = String(compareData[i][codeIdx] || '').trim();
+    const diff = Number(compareData[i][diffIdx]) || 0;
+    if (!code || diff <= 0) continue;
+
+    rows.push({
+      code: code,
+      name: nameByCode[code] || '',
+      qty: diff
+    });
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify(rows))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function findHeaderIndex(headers, candidates, fallback) {
+  for (let i = 0; i < candidates.length; i++) {
+    const idx = headers.indexOf(String(candidates[i]).toLowerCase());
+    if (idx !== -1) return idx;
+  }
+  return fallback;
 }
