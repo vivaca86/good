@@ -69,7 +69,7 @@ td.selected-slot{background:#dff0ff !important;box-shadow:inset 0 0 0 2px #2f5fa
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbzpcQG4plO7Jz0kbs2GcvxxSHrr_LSqiwOxoHaQP8-N94WXeKfrq0xJdjYB_BHoHO6u/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw_JhmXfPuZYiUfhILlEs4glWY3c8fQxEgkMdZ4qe2fGnYYlq6sOeiz75Qjzaaa8cm6/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -78,6 +78,7 @@ let dirtyMap={};
 let dbZoneLoadError="";
 let selectedSlot=null;
 let clipboardData=null;
+let pendingLogs=[];
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -383,9 +384,13 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
     if(!row.code){ alert("코드를 먼저 입력하세요"); return false; }
     const diff=toNumber(newValue)-toNumber(oldValue);
     if(diff!==0){
-      const logRes=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"logUsage",zone:currentZone,board:boardIndex+1,code:row.code,type:diff>0?"IN":"OUT",qty:Math.abs(diff)})});
-      const text=await logRes.text();
-      if(text!=="LOGGED") console.warn("logUsage 실패:",text);
+      pendingLogs.push({
+        zone:currentZone,
+        board:boardIndex+1,
+        code:row.code,
+        type:diff>0?"IN":"OUT",
+        qty:Math.abs(diff)
+      });
     }
   }
   row[field]=field==="qty"?String(toNumber(newValue)):newValue;
@@ -395,7 +400,42 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
 
 async function saveAll(){
   const keys=Object.keys(dirtyMap);
-  if(!keys.length) return;
+  if(!keys.length && !pendingLogs.length) return;
+
+  const items=[];
+  for(const key of keys){
+    const [z,b,s]=key.split("-");
+    if(Number(z)===5) continue;
+    const row=data[z][b][s];
+    items.push({
+      zone:Number(z),
+      board:Number(b)+1,
+      slot_no:Number(s)+1,
+      code:row.code,
+      name:row.name,
+      spec:row.spec,
+      qty:row.qty
+    });
+  }
+
+  try{
+    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"bulkSave",items,logs:pendingLogs})});
+    const text=await res.text();
+
+    if(text==="NO_ACTION") throw new Error("BULK_NO_ACTION");
+
+    const json=JSON.parse(text);
+    if(json.status!=="OK") throw new Error("BULK_BAD_STATUS");
+
+    dirtyMap={};
+    pendingLogs=[];
+    setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0})`,"ok");
+    return;
+  }catch(err){
+    console.warn("bulkSave 실패, 개별 저장 fallback:",err);
+  }
+
+  // fallback: 기존 개별 저장 + 개별 로그
   const failed=[];
 
   for(const key of keys){
@@ -407,6 +447,12 @@ async function saveAll(){
     if(text!=="UPDATED"&&text!=="CREATED") failed.push(`${key}:${text}`);
   }
 
+  for(const log of pendingLogs){
+    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"logUsage",zone:log.zone,board:log.board,code:log.code,type:log.type,qty:log.qty})});
+    const text=await res.text();
+    if(text!=="LOGGED") failed.push(`LOG:${log.code}:${text}`);
+  }
+
   if(failed.length){
     if(failed.some(x=>x.endsWith(':NOT_FOUND'))){
       setStatus("저장 실패: 서버가 해당 현황판 슬롯 행을 찾지 못했습니다. Apps Script를 최신 코드로 재배포하세요.","error");
@@ -415,7 +461,10 @@ async function saveAll(){
     }
     return;
   }
-  dirtyMap={}; setStatus("저장 완료","ok");
+
+  dirtyMap={};
+  pendingLogs=[];
+  setStatus("저장 완료","ok");
 }
 
 async function addBoard(){

@@ -45,6 +45,7 @@ function doPost(e) {
   if (payload.action === 'createBoard') return createBoardRows(payload);
   if (payload.action === 'deleteBoard') return deleteBoardRows(payload);
   if (payload.action === 'getDbDiff') return getDbDiffRows();
+  if (payload.action === 'bulkSave') return bulkSave(payload);
 
   return ContentService.createTextOutput('NO_ACTION');
 }
@@ -259,4 +260,88 @@ function parseNumber(value) {
 
 function normalizeCode(value) {
   return String(value || '').trim();
+}
+
+
+// ============================
+// 일괄 저장: 슬롯 업데이트 + 로그 일괄 추가
+// ============================
+function bulkSave(payload) {
+  const items = Array.isArray(payload && payload.items) ? payload.items : [];
+  const logs = Array.isArray(payload && payload.logs) ? payload.logs : [];
+
+  const slotSheet = SpreadsheetApp.getActive().getSheetByName('SLOTS');
+  const slotData = slotSheet.getDataRange().getValues();
+
+  const rowByKey = {};
+  for (let i = 1; i < slotData.length; i++) {
+    const key = [String(slotData[i][0]), String(slotData[i][1]), String(slotData[i][2])].join('-');
+    rowByKey[key] = i + 1;
+  }
+
+  let updated = 0;
+  let created = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i] || {};
+    const zone = Number(item.zone) || 0;
+    const board = Number(item.board) || 0;
+    const slotNo = Number(item.slot_no) || 0;
+    if (!zone || !board || !slotNo) continue;
+
+    const key = [String(zone), String(board), String(slotNo)].join('-');
+    const rowNo = rowByKey[key];
+
+    if (rowNo) {
+      slotSheet.getRange(rowNo, 4, 1, 4).setValues([[
+        item.code || '',
+        item.name || '',
+        item.spec || '',
+        Number(item.qty) || 0
+      ]]);
+      updated++;
+    } else {
+      slotSheet.appendRow([
+        zone,
+        board,
+        slotNo,
+        item.code || '',
+        item.name || '',
+        item.spec || '',
+        Number(item.qty) || 0
+      ]);
+      created++;
+    }
+  }
+
+  let logged = 0;
+  if (logs.length > 0) {
+    const logSheet = SpreadsheetApp.getActive().getSheetByName('USAGE_LOG');
+    const values = [];
+    for (let i = 0; i < logs.length; i++) {
+      const log = logs[i] || {};
+      const code = normalizeCode(log.code);
+      const qty = parseNumber(log.qty);
+      const type = String(log.type || '').toUpperCase();
+      if (!code || qty <= 0 || (type !== 'IN' && type !== 'OUT')) continue;
+      values.push([
+        new Date(),
+        Number(log.zone) || '',
+        Number(log.board) || '',
+        code,
+        type,
+        qty
+      ]);
+    }
+
+    if (values.length > 0) {
+      const start = logSheet.getLastRow() + 1;
+      logSheet.getRange(start, 1, values.length, 6).setValues(values);
+      logged = values.length;
+    }
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'OK', updated: updated, created: created, logged: logged }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
