@@ -15,6 +15,10 @@ body{margin:0;background:#e9e3da;font-family:-apple-system,BlinkMacSystemFont,sa
 .zone-divider{color:#7e8fa8;font-size:14px;user-select:none;}
 .control-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .control-btn{color:#2f5fa7;padding:6px 10px;border:1px solid #9ab0cd;border-radius:8px;background:#f6f9ff;}
+.control-btn.board-action{background:#f4f7fc;border-color:#a9bad6;}
+.control-btn.clip-action{background:#f8f4ff;border-color:#b8a9d6;}
+.control-btn.primary-action{background:#eef7ff;border-color:#7fa7d8;font-weight:700;}
+.control-btn.primary-action.done-state{background:#e7f6eb;border-color:#6ab28b;color:#1f7a46;}
 .board-wrapper{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .board{min-width:100%;scroll-snap-align:start;}
 .board-title{padding:10px 14px;font-weight:700;color:#4a5f82;}
@@ -45,13 +49,13 @@ td.selected-slot{background:#dff0ff !important;box-shadow:inset 0 0 0 2px #2f5fa
     <button class="zone-btn" data-zone="5">DB재고</button>
   </div>
   <div class="control-row">
-    <button id="addBoardBtn" class="control-btn edit-only non-db-only" style="display:none;">현황판 추가</button>
-    <button id="deleteBoardBtn" class="control-btn edit-only non-db-only" style="display:none;">현황판 삭제</button>
-    <button id="copyBtn" class="control-btn edit-only" style="display:none;">복사</button>
-    <button id="cutBtn" class="control-btn edit-only non-db-only" style="display:none;">잘라내기</button>
-    <button id="pasteBtn" class="control-btn edit-only non-db-only" style="display:none;">붙여넣기</button>
-    <button id="clearBtn" class="control-btn edit-only non-db-only" style="display:none;">슬롯 비우기</button>
-    <button id="editBtn" class="control-btn">편집</button>
+    <button id="addBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;">현황판 추가</button>
+    <button id="deleteBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;">현황판 삭제</button>
+    <button id="copyBtn" class="control-btn clip-action edit-only db-only" style="display:none;">복사</button>
+    <button id="cutBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;">잘라내기</button>
+    <button id="pasteBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;">붙여넣기</button>
+    <button id="clearBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;">슬롯 비우기</button>
+    <button id="editBtn" class="control-btn primary-action">편집</button>
   </div>
 </div>
 
@@ -63,7 +67,7 @@ td.selected-slot{background:#dff0ff !important;box-shadow:inset 0 0 0 2px #2f5fa
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxfFyEh8ZCGajbOAH_zoxB9XEPqqCKpiM7AXRCTxgThiPo0AXbWUn_I1K8Y_mLlQpsg/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbwsa7z64OmnoqbQFoKfUi1AUGtX0Fk5XGTx8NVe6qCCaZ80lRFYeCIM3_nR26LPw3bP/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -104,9 +108,15 @@ function syncEditControls(){
   document.querySelectorAll(".edit-only").forEach(el=>{
     el.style.display=editMode?"inline-block":"none";
   });
+
   document.querySelectorAll(".non-db-only").forEach(el=>{
-    if(!editMode){ el.style.display="none"; return; }
-    el.style.display=currentZone===5?"none":"inline-block";
+    if(!editMode || currentZone===5){ el.style.display="none"; return; }
+    el.style.display="inline-block";
+  });
+
+  document.querySelectorAll(".db-only").forEach(el=>{
+    if(!editMode || currentZone!==5){ el.style.display="none"; return; }
+    el.style.display="inline-block";
   });
 }
 
@@ -409,7 +419,9 @@ async function deleteCurrentBoard(){
 
 document.getElementById("editBtn").onclick=async ()=>{
   editMode=!editMode;
-  document.getElementById("editBtn").textContent=editMode?"완료":"편집";
+  const editBtn=document.getElementById("editBtn");
+  editBtn.textContent=editMode?"완료":"편집";
+  editBtn.classList.toggle("done-state",editMode);
   if(!editMode) await saveAll();
   render();
 };
