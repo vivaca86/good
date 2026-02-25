@@ -8,77 +8,93 @@
 <style>
 body{margin:0;background:#e9e3da;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
 .app{width:100%;min-height:100vh;background:#f6f1ea;display:flex;flex-direction:column;}
-.top-bar{background:#dbe6f3;padding:12px;display:flex;gap:12px;}
-.zone-btn{font-size:17px;color:#4a5f82;}
-.zone-btn.active{font-weight:bold;color:#2f5fa7;}
-.control-btn{margin-left:auto;color:#2f5fa7;}
+.top-bar{background:#dbe6f3;padding:10px 12px;display:flex;flex-direction:column;gap:10px;align-items:stretch;}
+.zone-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px;background:#cfd9e7;border:1px solid #a8b8d0;border-radius:12px;}
+.zone-btn{font-size:16px;color:#4a5f82;padding:6px 10px;border-radius:8px;border:1px solid transparent;background:transparent;}
+.zone-btn.active{font-weight:700;color:#2f5fa7;background:#eef4ff;border-color:#94acd0;}
+.zone-divider{color:#7e8fa8;font-size:14px;user-select:none;}
+.control-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.control-btn{color:#2f5fa7;padding:6px 10px;border:1px solid #9ab0cd;border-radius:8px;background:#f6f9ff;}
 .board-wrapper{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .board{min-width:100%;scroll-snap-align:start;}
-table{width:100%;border-collapse:collapse;}
+.board-title{padding:10px 14px;font-weight:700;color:#4a5f82;}
+table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid #c8cfda;}
 thead{background:#b8c7db;}
-th,td{padding:14px;font-size:16px;border-bottom:1px solid #d7dbe2;}
+th,td{padding:14px;font-size:16px;border-bottom:1px solid #d7dbe2;border-right:1px solid #cfd6e1;text-align:center;vertical-align:middle;}
+th:last-child,td:last-child{border-right:none;}
 tbody tr:nth-child(even){background:#e9f0f8;}
-input.inline-edit{width:100%;border:none;outline:none;background:transparent;font-size:16px;}
-.selected{background:rgba(255,220,120,0.18);}
+input.inline-edit{width:100%;border:none;outline:none;background:transparent;font-size:16px;text-align:center;}
+td.editing-cell{position:relative;background:#fff4c7 !important;box-shadow:inset 0 0 0 3px #2f5fa7;z-index:1;}
 </style>
 </head>
 <body>
 
 <div class="app">
 <div class="top-bar">
-  <button class="zone-btn active" data-zone="1">1구역</button>
-  <button class="zone-btn" data-zone="2">2구역</button>
-  <button class="zone-btn" data-zone="3">3구역</button>
-  <button class="zone-btn" data-zone="4">4구역</button>
-  <button class="zone-btn" data-zone="5">5구역</button>
-  <button id="editBtn" class="control-btn">편집</button>
+  <div class="zone-tabs">
+    <button class="zone-btn active" data-zone="1">1구역</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="2">2구역</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="3">3구역</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="4">재고</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="5">DB재고</button>
+  </div>
+  <div class="control-row">
+    <button id="addBoardBtn" class="control-btn edit-only" style="display:none;">현황판 추가</button>
+    <button id="deleteBoardBtn" class="control-btn edit-only" style="display:none;">현황판 삭제</button>
+    <button id="editBtn" class="control-btn">편집</button>
+  </div>
 </div>
 
+<div id="statusBar" style="display:none;padding:10px 12px;font-size:14px;"></div>
 <div id="boardWrapper" class="board-wrapper"></div>
+<div id="boardDotsWrap" style="padding:8px 12px 12px;text-align:center;background:#f6f1ea;">
+  <div id="boardDots" style="display:inline-block;color:#3f5f89;font-size:18px;letter-spacing:2px;">●</div>
+</div>
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxk6IYQReO6S4F8-pr0spWviWFAW_PmQhMPPgVaBd4Gox1DK5MxQUi1fi9si_NBVZTB/exec";
-
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw_NNR_DKQAcz5DSqRzKKqqswdmadb3iobx0HtPE3IPwpQfajLQNfwfz4wd6CfSuY_y/exec";
 const slotsPerBoard=12;
 let currentZone=1;
+let currentBoardIndex=0;
 let editMode=false;
-let selectedCell=null;
 let dirtyMap={};
 
 const data={};
-for(let z=1;z<=5;z++){
-  data[z]=[createBoard()];
-}
+for(let z=1;z<=5;z++) data[z]=[createBoard()];
 
 function createBoard(){
-  const arr=[];
-  for(let i=0;i<slotsPerBoard;i++){
-    arr.push({code:"",name:"",spec:"",qty:""});
-  }
-  return arr;
+  return Array.from({length:slotsPerBoard},()=>({code:"",name:"",spec:"",qty:""}));
+}
+function toNumber(value){ const num=Number(value); return Number.isFinite(num)?num:0; }
+function ensureBoard(zone,boardIndex){ while(data[zone].length<=boardIndex) data[zone].push(createBoard()); }
+
+function setStatus(message,type="info"){
+  const bar=document.getElementById("statusBar");
+  if(!message){ bar.style.display="none"; bar.textContent=""; return; }
+  const palette={info:["#e9f0f8","#2f5fa7"],warn:["#fff2cc","#8a6d1f"],error:["#fbe4e6","#9f2d35"],ok:["#e8f5e9","#2e7d32"]};
+  const p=palette[type]||palette.info;
+  bar.style.display="block"; bar.style.background=p[0]; bar.style.color=p[1]; bar.textContent=message;
 }
 
-async function loadData(){
-  const res=await fetch(SCRIPT_URL);
-  const rows=await res.json();
+function updateBoardIndicator(){
+  const total=data[currentZone].length;
+  if(currentBoardIndex>total-1) currentBoardIndex=Math.max(0,total-1);
+  const dots=[];
+  for(let i=0;i<total;i++) dots.push(i===currentBoardIndex?"●":"○");
+  const el=document.getElementById("boardDots");
+  el.textContent=dots.join(" ");
+  el.dataset.total=String(total);
+}
 
-  rows.forEach(row=>{
-    const z=row.zone;
-    const b=row.board-1;
-    const s=row.slot_no-1;
-
-    if(data[z]&&data[z][b]){
-      data[z][b][s]={
-        code:row.code||"",
-        name:row.name||"",
-        spec:row.spec||"",
-        qty:row.qty||""
-      };
-    }
+function syncEditControls(){
+  document.querySelectorAll(".edit-only").forEach(el=>{
+    el.style.display=(editMode && currentZone!==5)?"inline-block":"none";
   });
-
-  render();
 }
 
 function render(){
@@ -88,109 +104,182 @@ function render(){
   data[currentZone].forEach((board,boardIndex)=>{
     const boardDiv=document.createElement("div");
     boardDiv.className="board";
+    boardDiv.dataset.boardIndex=String(boardIndex);
+
+    const title=document.createElement("div");
+    title.className="board-title";
+    title.textContent=`현황판 ${boardIndex+1}`;
 
     const table=document.createElement("table");
-    table.innerHTML=`
-      <thead>
-        <tr>
-          <th>코드</th><th>품목</th><th>규격</th><th>재고</th>
-        </tr>
-      </thead><tbody></tbody>`;
-
+    const columns=currentZone===5?['코드','품명','재고']:['코드','품목','규격','재고'];
+    table.innerHTML=`<thead><tr>${columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody></tbody>`;
     const tbody=table.querySelector("tbody");
 
     board.forEach((row,rowIndex)=>{
       const tr=document.createElement("tr");
-
-      ["code","name","spec","qty"].forEach(field=>{
+      const fields=currentZone===5?["code","name","qty"]:["code","name","spec","qty"];
+      fields.forEach(field=>{
         const td=document.createElement("td");
         td.textContent=row[field];
-        if(editMode){
-          td.onclick=()=>editCell(td,boardIndex,rowIndex,field);
-        }
+        if(currentZone===5 && field==="qty") td.style.color="#c62828";
+        if(editMode && currentZone!==5) td.onclick=()=>editCell(td,boardIndex,rowIndex,field);
         tr.appendChild(td);
       });
-
       tbody.appendChild(tr);
     });
 
+    boardDiv.appendChild(title);
     boardDiv.appendChild(table);
     wrapper.appendChild(boardDiv);
   });
+
+  updateBoardIndicator();
+  syncEditControls();
+  requestAnimationFrame(()=>goToBoard(currentBoardIndex,false));
+}
+
+function goToBoard(index,smooth=true){
+  const wrapper=document.getElementById("boardWrapper");
+  const total=data[currentZone].length;
+  currentBoardIndex=Math.max(0,Math.min(index,total-1));
+  const left=wrapper.clientWidth*currentBoardIndex;
+  wrapper.scrollTo({left,behavior:smooth?"smooth":"auto"});
+  updateBoardIndicator();
+}
+
+async function loadData(){
+  try{
+    const res=await fetch(SCRIPT_URL);
+    const rows=await res.json();
+    if(!Array.isArray(rows)) throw new Error("응답 형식 오류");
+
+    rows.forEach(row=>{
+      const z=Number(row.zone); const b=Number(row.board)-1; const s=Number(row.slot_no)-1;
+      if(!z || z===5 || b<0 || s<0 || s>=slotsPerBoard) return;
+      ensureBoard(z,b);
+      data[z][b][s]={code:row.code||"",name:row.name||"",spec:row.spec||"",qty:row.qty||""};
+    });
+
+    await loadDbZoneData();
+    render();
+    setStatus("");
+  }catch(err){
+    console.error(err);
+    setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
+  }
+}
+
+
+async function loadDbZoneData(){
+  data[5]=[createBoard()];
+  try{
+    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"getDbDiff"})});
+    const rows=await res.json();
+    if(!Array.isArray(rows)) return;
+
+    rows.forEach((row,idx)=>{
+      const b=Math.floor(idx/slotsPerBoard);
+      const s=idx%slotsPerBoard;
+      ensureBoard(5,b);
+      data[5][b][s]={
+        code:row.code||"",
+        name:row.name||"",
+        spec:"",
+        qty:String(toNumber(row.qty))
+      };
+    });
+  }catch(err){
+    console.warn("DB 구역 로드 실패:",err);
+  }
 }
 
 function editCell(cell,boardIndex,rowIndex,field){
   if(cell.querySelector("input")) return;
-
   const oldValue=data[currentZone][boardIndex][rowIndex][field];
-
   const input=document.createElement("input");
-  input.value=oldValue;
-  input.className="inline-edit";
-
-  cell.textContent="";
-  cell.appendChild(input);
-  input.focus();
-
-  input.onblur=()=>{
-    const newValue=input.value;
-    processChange(boardIndex,rowIndex,field,oldValue,newValue);
-    cell.textContent=newValue;
+  input.value=oldValue; input.className="inline-edit";
+  cell.classList.add("editing-cell");
+  cell.textContent=""; cell.appendChild(input); input.focus();
+  input.onblur=async ()=>{
+    const ok=await processChange(boardIndex,rowIndex,field,oldValue,input.value.trim());
+    cell.classList.remove("editing-cell");
+    cell.textContent=ok?data[currentZone][boardIndex][rowIndex][field]:oldValue;
   };
 }
 
 async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
   const row=data[currentZone][boardIndex][rowIndex];
-
   if(field==="qty"){
-    if(!row.code){
-      alert("코드를 먼저 입력하세요");
-      return;
-    }
-
-    const diff=parseInt(newValue||0)-parseInt(oldValue||0);
-
+    if(!row.code){ alert("코드를 먼저 입력하세요"); return false; }
+    const diff=toNumber(newValue)-toNumber(oldValue);
     if(diff!==0){
-      const type=diff>0?"IN":"OUT";
-      await fetch(SCRIPT_URL,{
-        method:"POST",
-        body:JSON.stringify({
-          action:"logUsage",
-          zone:currentZone,
-          board:boardIndex+1,
-          code:row.code,
-          type:type,
-          qty:Math.abs(diff)
-        })
-      });
+      const logRes=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"logUsage",zone:currentZone,board:boardIndex+1,code:row.code,type:diff>0?"IN":"OUT",qty:Math.abs(diff)})});
+      const text=await logRes.text();
+      if(text!=="LOGGED") console.warn("logUsage 실패:",text);
     }
   }
-
-  row[field]=newValue;
+  row[field]=field==="qty"?String(toNumber(newValue)):newValue;
   dirtyMap[`${currentZone}-${boardIndex}-${rowIndex}`]=true;
+  return true;
 }
 
 async function saveAll(){
   const keys=Object.keys(dirtyMap);
+  if(!keys.length) return;
+  const failed=[];
+
   for(const key of keys){
     const [z,b,s]=key.split("-");
+    if(Number(z)===5) continue;
     const row=data[z][b][s];
-
-    await fetch(SCRIPT_URL,{
-      method:"POST",
-      body:JSON.stringify({
-        action:"updateSlot",
-        zone:Number(z),
-        board:Number(b)+1,
-        slot_no:Number(s)+1,
-        code:row.code,
-        name:row.name,
-        spec:row.spec,
-        qty:row.qty
-      })
-    });
+    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"updateSlot",zone:Number(z),board:Number(b)+1,slot_no:Number(s)+1,code:row.code,name:row.name,spec:row.spec,qty:row.qty})});
+    const text=await res.text();
+    if(text!=="UPDATED"&&text!=="CREATED") failed.push(`${key}:${text}`);
   }
-  dirtyMap={};
+
+  if(failed.length){
+    if(failed.some(x=>x.endsWith(':NOT_FOUND'))){
+      setStatus("저장 실패: 서버가 해당 현황판 슬롯 행을 찾지 못했습니다. Apps Script를 최신 코드로 재배포하세요.","error");
+    }else{
+      setStatus(`저장 실패 ${failed.length}건: ${failed[0]}`,"error");
+    }
+    return;
+  }
+  dirtyMap={}; setStatus("저장 완료","ok");
+}
+
+async function addBoard(){
+  const boardNo=data[currentZone].length+1;
+  const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"createBoard",zone:currentZone,board:boardNo})});
+  const text=await res.text();
+  if(text!=="BOARD_CREATED"){
+    if(text==="NO_ACTION"){
+      setStatus("현황판 추가 실패: 서버 배포가 구버전입니다. Apps Script 재배포 후 다시 시도하세요.","error");
+      return;
+    }
+    setStatus(`현황판 추가 실패: ${text}`,"error");
+    return;
+  }
+  ensureBoard(currentZone,boardNo-1);
+  setStatus(`현황판 ${boardNo} 추가 완료`,"ok");
+  render();
+  goToBoard(boardNo-1);
+}
+
+async function deleteCurrentBoard(){
+  if(data[currentZone].length<=1){ alert("현황판은 최소 1개가 필요합니다."); return; }
+  const boardNo=currentBoardIndex+1;
+  if(!confirm(`${currentZone}구역의 ${boardNo}번 현황판을 삭제할까요?`)) return;
+  const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"deleteBoard",zone:currentZone,board:boardNo})});
+  const text=await res.text();
+  if(text!=="BOARD_DELETED"){
+    if(text==="NO_ACTION") setStatus("현황판 삭제는 현재 서버 배포에서 미지원입니다. Apps Script 재배포 후 사용하세요.","warn");
+    else setStatus(`현황판 삭제 실패: ${text}`,"error");
+    return;
+  }
+  data[currentZone].splice(currentBoardIndex,1);
+  setStatus(`현황판 ${boardNo} 삭제 완료`,"ok");
+  render();
 }
 
 document.getElementById("editBtn").onclick=async ()=>{
@@ -200,11 +289,30 @@ document.getElementById("editBtn").onclick=async ()=>{
   render();
 };
 
+document.getElementById("addBoardBtn").onclick=addBoard;
+document.getElementById("deleteBoardBtn").onclick=deleteCurrentBoard;
+
+document.getElementById("boardDots").onclick=(e)=>{
+  const total=data[currentZone].length;
+  if(total<=1) return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const ratio=(e.clientX-rect.left)/Math.max(rect.width,1);
+  const idx=Math.max(0,Math.min(total-1,Math.floor(ratio*total)));
+  goToBoard(idx);
+};
+
+document.getElementById("boardWrapper").addEventListener("scroll",()=>{
+  const wrapper=document.getElementById("boardWrapper");
+  const index=Math.round(wrapper.scrollLeft/Math.max(wrapper.clientWidth,1));
+  if(index!==currentBoardIndex){ currentBoardIndex=index; updateBoardIndicator(); }
+});
+
 document.querySelectorAll(".zone-btn").forEach(btn=>{
   btn.onclick=()=>{
     document.querySelectorAll(".zone-btn").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     currentZone=Number(btn.dataset.zone);
+    currentBoardIndex=0;
     render();
   };
 });
