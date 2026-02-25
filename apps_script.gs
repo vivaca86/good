@@ -185,12 +185,10 @@ function getDbDiffRows() {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  const headers = dbData[0].map(h => String(h).trim().toLowerCase());
-
-  // 요청 기준: DB 시트 코드=B, 품명=B, 재고=F (헤더가 있으면 우선 사용)
-  const codeIdx = findHeaderIndex(headers, ['code', '코드', '상품코드'], 1);
-  const nameIdx = findHeaderIndex(headers, ['name', '품명', '상품명'], 1);
-  const qtyIdx = findHeaderIndex(headers, ['qty', '수량', '재고'], 5);
+  // 요청 기준 고정 매핑: DB 시트 코드=B, 품명=C, 재고=F
+  const codeIdx = 1;
+  const nameIdx = 2;
+  const qtyIdx = 5;
 
   const rows = [];
   for (let i = 1; i < dbData.length; i++) {
@@ -198,7 +196,7 @@ function getDbDiffRows() {
     const qty = parseNumber(dbData[i][qtyIdx]);
     if (!code || qty <= 0) continue;
 
-    const name = String(dbData[i][nameIdx] || dbData[i][codeIdx] || '').trim();
+    const name = String(dbData[i][nameIdx] || '').trim();
 
     rows.push({
       code: code,
