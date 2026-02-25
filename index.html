@@ -64,6 +64,7 @@ let currentZone=1;
 let currentBoardIndex=0;
 let editMode=false;
 let dirtyMap={};
+let dbZoneLoadError="";
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -164,7 +165,8 @@ async function loadData(){
 
     await loadDbZoneData();
     render();
-    setStatus("");
+    if(dbZoneLoadError) setStatus(dbZoneLoadError,"warn");
+    else setStatus("");
   }catch(err){
     console.error(err);
     setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
@@ -174,10 +176,28 @@ async function loadData(){
 
 async function loadDbZoneData(){
   data[5]=[createBoard()];
+  dbZoneLoadError="";
   try{
     const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"getDbDiff"})});
-    const rows=await res.json();
-    if(!Array.isArray(rows)) return;
+    const text=await res.text();
+
+    if(text==="NO_ACTION"){
+      dbZoneLoadError="DB재고 로드 실패: Apps Script가 구버전입니다. 서버를 재배포하세요.";
+      return;
+    }
+
+    let rows=[];
+    try{
+      rows=JSON.parse(text);
+    }catch(_){
+      dbZoneLoadError="DB재고 로드 실패: 서버 응답 형식을 확인하세요.";
+      return;
+    }
+
+    if(!Array.isArray(rows)){
+      dbZoneLoadError="DB재고 로드 실패: 배열 응답이 아닙니다.";
+      return;
+    }
 
     rows.forEach((row,idx)=>{
       const b=Math.floor(idx/slotsPerBoard);
@@ -192,6 +212,7 @@ async function loadDbZoneData(){
     });
   }catch(err){
     console.warn("DB 구역 로드 실패:",err);
+    dbZoneLoadError="DB재고 로드 실패: 네트워크/권한을 확인하세요.";
   }
 }
 
@@ -316,6 +337,7 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
     currentZone=Number(btn.dataset.zone);
     currentBoardIndex=0;
     render();
+    if(currentZone===5 && dbZoneLoadError) setStatus(dbZoneLoadError,"warn");
   };
 });
 

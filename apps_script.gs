@@ -195,7 +195,7 @@ function getDbDiffRows() {
   if (dcSheet) {
     const dcData = dcSheet.getDataRange().getValues();
     for (let i = 1; i < dcData.length; i++) {
-      const code = String(dcData[i][0] || '').trim();
+      const code = normalizeCode(dcData[i][0]);
       const name = String(dcData[i][2] || '').trim();
       if (code) nameByCode[code] = name;
     }
@@ -203,8 +203,8 @@ function getDbDiffRows() {
 
   const rows = [];
   for (let i = 1; i < compareData.length; i++) {
-    const code = String(compareData[i][codeIdx] || '').trim();
-    const diff = Number(compareData[i][diffIdx]) || 0;
+    const code = normalizeCode(compareData[i][codeIdx]);
+    const diff = parseNumber(compareData[i][diffIdx]);
     if (!code || diff <= 0) continue;
 
     rows.push({
@@ -225,4 +225,16 @@ function findHeaderIndex(headers, candidates, fallback) {
     if (idx !== -1) return idx;
   }
   return fallback;
+}
+
+
+function parseNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const str = String(value || '').replace(/,/g, '').trim();
+  const num = Number(str);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function normalizeCode(value) {
+  return String(value || '').trim();
 }
