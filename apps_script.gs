@@ -189,7 +189,7 @@ function getDbDiffRows() {
   const compareHeaders = compareData[0].map(h => String(h).trim().toLowerCase());
 
   const codeIdx = findHeaderIndex(compareHeaders, ['code', '코드'], 0);
-  const diffIdx = findHeaderIndex(compareHeaders, ['diff', '디프', '차이'], 1);
+  const qtyIdx = findHeaderIndex(compareHeaders, ['e', 'result', '결과', '재고', 'qty', '수량'], 4);
 
   const nameByCode = {};
   if (dcSheet) {
@@ -204,15 +204,15 @@ function getDbDiffRows() {
   const rows = [];
   for (let i = 1; i < compareData.length; i++) {
     const code = normalizeCode(compareData[i][codeIdx]);
-    const diff = parseNumber(compareData[i][diffIdx]);
-    if (!code || diff <= 0) continue;
+    const qty = parseNumber(compareData[i][qtyIdx]);
+    if (!code || qty <= 0) continue;
 
     const compareName = String(compareData[i][2] || '').trim();
 
     rows.push({
       code: code,
       name: compareName || nameByCode[code] || '',
-      qty: diff
+      qty: qty
     });
   }
 
