@@ -207,9 +207,11 @@ function getDbDiffRows() {
     const diff = parseNumber(compareData[i][diffIdx]);
     if (!code || diff <= 0) continue;
 
+    const compareName = String(compareData[i][2] || '').trim();
+
     rows.push({
       code: code,
-      name: nameByCode[code] || '',
+      name: compareName || nameByCode[code] || '',
       qty: diff
     });
   }

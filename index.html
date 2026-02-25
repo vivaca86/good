@@ -26,6 +26,7 @@ tbody td{height:52px;}
 tbody tr:nth-child(even){background:#e9f0f8;}
 input.inline-edit{width:100%;border:none;outline:none;background:transparent;font-size:16px;text-align:center;line-height:1.25;}
 td.editing-cell{position:relative;background:#fff4c7 !important;box-shadow:inset 0 0 0 3px #2f5fa7;z-index:1;}
+td.selected-slot{background:#dff0ff !important;box-shadow:inset 0 0 0 2px #2f5fa7;}
 </style>
 </head>
 <body>
@@ -44,8 +45,12 @@ td.editing-cell{position:relative;background:#fff4c7 !important;box-shadow:inset
     <button class="zone-btn" data-zone="5">DB재고</button>
   </div>
   <div class="control-row">
-    <button id="addBoardBtn" class="control-btn edit-only" style="display:none;">현황판 추가</button>
-    <button id="deleteBoardBtn" class="control-btn edit-only" style="display:none;">현황판 삭제</button>
+    <button id="addBoardBtn" class="control-btn edit-only non-db-only" style="display:none;">현황판 추가</button>
+    <button id="deleteBoardBtn" class="control-btn edit-only non-db-only" style="display:none;">현황판 삭제</button>
+    <button id="copyBtn" class="control-btn edit-only" style="display:none;">복사</button>
+    <button id="cutBtn" class="control-btn edit-only non-db-only" style="display:none;">잘라내기</button>
+    <button id="pasteBtn" class="control-btn edit-only non-db-only" style="display:none;">붙여넣기</button>
+    <button id="clearBtn" class="control-btn edit-only non-db-only" style="display:none;">슬롯 비우기</button>
     <button id="editBtn" class="control-btn">편집</button>
   </div>
 </div>
@@ -58,13 +63,15 @@ td.editing-cell{position:relative;background:#fff4c7 !important;box-shadow:inset
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbwsa7z64OmnoqbQFoKfUi1AUGtX0Fk5XGTx8NVe6qCCaZ80lRFYeCIM3_nR26LPw3bP/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxfFyEh8ZCGajbOAH_zoxB9XEPqqCKpiM7AXRCTxgThiPo0AXbWUn_I1K8Y_mLlQpsg/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
 let editMode=false;
 let dirtyMap={};
 let dbZoneLoadError="";
+let selectedSlot=null;
+let clipboardData=null;
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -95,13 +102,18 @@ function updateBoardIndicator(){
 
 function syncEditControls(){
   document.querySelectorAll(".edit-only").forEach(el=>{
-    el.style.display=(editMode && currentZone!==5)?"inline-block":"none";
+    el.style.display=editMode?"inline-block":"none";
+  });
+  document.querySelectorAll(".non-db-only").forEach(el=>{
+    if(!editMode){ el.style.display="none"; return; }
+    el.style.display=currentZone===5?"none":"inline-block";
   });
 }
 
 function render(){
   const wrapper=document.getElementById("boardWrapper");
   wrapper.innerHTML="";
+  selectedSlot=null;
 
   data[currentZone].forEach((board,boardIndex)=>{
     const boardDiv=document.createElement("div");
@@ -125,7 +137,7 @@ function render(){
         td.textContent=row[field];
         td.title=String(row[field]||"");
         if(currentZone===5 && field==="qty") td.style.color="#c62828";
-        if(editMode && currentZone!==5) td.onclick=()=>editCell(td,boardIndex,rowIndex,field);
+        if(editMode || currentZone===5) td.onclick=()=>handleSlotTap(td,boardIndex,rowIndex,field);
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -216,6 +228,96 @@ async function loadDbZoneData(){
   }
 }
 
+function markDirty(zone,boardIndex,rowIndex){
+  dirtyMap[`${zone}-${boardIndex}-${rowIndex}`]=true;
+}
+
+function handleSlotTap(cell,boardIndex,rowIndex,field){
+  const same=selectedSlot &&
+    selectedSlot.zone===currentZone &&
+    selectedSlot.boardIndex===boardIndex &&
+    selectedSlot.rowIndex===rowIndex &&
+    selectedSlot.field===field;
+
+  if(selectedSlot && selectedSlot.cellEl && selectedSlot.cellEl!==cell){
+    selectedSlot.cellEl.classList.remove("selected-slot");
+  }
+
+  cell.classList.add("selected-slot");
+  selectedSlot={zone:currentZone,boardIndex,rowIndex,field,cellEl:cell};
+
+  if(editMode && currentZone!==5 && same){
+    editCell(cell,boardIndex,rowIndex,field);
+  }
+}
+
+function copySlot(){
+  if(!selectedSlot){ alert("먼저 셀을 선택하세요."); return; }
+  const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
+
+  if(selectedSlot.zone===5){
+    clipboardData={type:"db",code:row.code||"",qty:String(toNumber(row.qty))};
+    setStatus("DB 데이터 복사 완료 (코드/재고)","ok");
+    return;
+  }
+
+  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(toNumber(row.qty))}};
+  setStatus("슬롯 복사 완료","ok");
+}
+
+function cutSlot(){
+  if(!selectedSlot){ alert("먼저 셀을 선택하세요."); return; }
+  if(selectedSlot.zone===5){ alert("DB구역에서는 잘라내기를 사용할 수 없습니다."); return; }
+
+  const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
+  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(toNumber(row.qty))}};
+
+  data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex]={code:"",name:"",spec:"",qty:""};
+  markDirty(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
+  setStatus("슬롯 잘라내기 완료","ok");
+  render();
+}
+
+function pasteSlot(){
+  if(!selectedSlot){ alert("붙여넣을 대상 셀을 먼저 선택하세요."); return; }
+  if(selectedSlot.zone===5){ alert("DB구역에는 붙여넣을 수 없습니다."); return; }
+  if(!clipboardData){ alert("클립보드가 비어있습니다. 먼저 복사/잘라내기를 하세요."); return; }
+
+  const target=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
+  if(clipboardData.type==="db"){
+    target.code=clipboardData.code||"";
+    target.qty=String(toNumber(clipboardData.qty));
+  }else{
+    target.code=clipboardData.row.code||"";
+    target.name=clipboardData.row.name||"";
+    target.spec=clipboardData.row.spec||"";
+    target.qty=String(toNumber(clipboardData.row.qty));
+  }
+
+  markDirty(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
+  setStatus("붙여넣기 완료","ok");
+  render();
+}
+
+function clearSlotIfZero(){
+  if(!selectedSlot){ alert("먼저 삭제할 셀을 선택하세요."); return; }
+  if(selectedSlot.zone===5){ alert("DB구역은 삭제할 수 없습니다."); return; }
+
+  const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
+  const qtyText=String(row.qty||"").trim();
+  const qtyNum=toNumber(qtyText);
+
+  if(qtyText!=="" && qtyNum!==0){
+    alert("재고가 0 또는 빈값일 때만 슬롯 비우기가 가능합니다.");
+    return;
+  }
+
+  data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex]={code:"",name:"",spec:"",qty:""};
+  markDirty(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
+  setStatus("슬롯 비우기 완료","ok");
+  render();
+}
+
 function editCell(cell,boardIndex,rowIndex,field){
   if(cell.querySelector("input")) return;
   const oldValue=data[currentZone][boardIndex][rowIndex][field];
@@ -242,7 +344,7 @@ async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
     }
   }
   row[field]=field==="qty"?String(toNumber(newValue)):newValue;
-  dirtyMap[`${currentZone}-${boardIndex}-${rowIndex}`]=true;
+  markDirty(currentZone,boardIndex,rowIndex);
   return true;
 }
 
@@ -314,6 +416,10 @@ document.getElementById("editBtn").onclick=async ()=>{
 
 document.getElementById("addBoardBtn").onclick=addBoard;
 document.getElementById("deleteBoardBtn").onclick=deleteCurrentBoard;
+document.getElementById("copyBtn").onclick=copySlot;
+document.getElementById("cutBtn").onclick=cutSlot;
+document.getElementById("pasteBtn").onclick=pasteSlot;
+document.getElementById("clearBtn").onclick=clearSlotIfZero;
 
 document.getElementById("boardDots").onclick=(e)=>{
   const total=data[currentZone].length;
