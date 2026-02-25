@@ -172,6 +172,7 @@ function deleteBoardRows(payload) {
 function getDbDiffRows() {
   const compareSheet = SpreadsheetApp.getActive().getSheetByName('COMPARE');
   const dcSheet = SpreadsheetApp.getActive().getSheetByName('DC');
+  const logSheet = SpreadsheetApp.getActive().getSheetByName('USAGE_LOG');
 
   if (!compareSheet) {
     return ContentService
@@ -201,18 +202,37 @@ function getDbDiffRows() {
     }
   }
 
+  // 사용 로그 반영: 현황판에서 소비(OUT)가 발생해도 DB구역이 즉시 다시 뜨지 않도록 보정
+  const consumedByCode = {};
+  if (logSheet) {
+    const logData = logSheet.getDataRange().getValues();
+    for (let i = 1; i < logData.length; i++) {
+      const code = normalizeCode(logData[i][3]);
+      const type = String(logData[i][4] || '').toUpperCase();
+      const qty = parseNumber(logData[i][5]);
+      if (!code || qty <= 0) continue;
+      if (!(code in consumedByCode)) consumedByCode[code] = 0;
+      if (type === 'OUT') consumedByCode[code] += qty;
+      if (type === 'IN') consumedByCode[code] -= qty;
+    }
+  }
+
   const rows = [];
   for (let i = 1; i < compareData.length; i++) {
     const code = normalizeCode(compareData[i][codeIdx]);
     const qty = parseNumber(compareData[i][qtyIdx]);
     if (!code || qty <= 0) continue;
 
+    const consumed = Math.max(0, parseNumber(consumedByCode[code]));
+    const adjustedQty = Math.max(0, qty - consumed);
+    if (adjustedQty <= 0) continue;
+
     const compareName = String(compareData[i][2] || '').trim();
 
     rows.push({
       code: code,
       name: compareName || nameByCode[code] || '',
-      qty: qty
+      qty: adjustedQty
     });
   }
 
