@@ -73,7 +73,7 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbz30hjzQktauEqTzO05zhT7MqN4ueubVJSAArk-fpxkeiILOoQ9jrYpiZ12TNbVigLr/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw4CDDK-_c_xg44HyYoOHUG2C_E5KHcENQjJZpJbXlSKHyvFA3rcojIGq2fpNZrqXLK/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -84,6 +84,8 @@ let selectedSlot=null;
 let clipboardData=null;
 let pendingLogs=[];
 let deferredInstallPrompt=null;
+let dbZoneLoaded=false;
+let dbZoneLoading=false;
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -244,10 +246,9 @@ async function loadData(){
       data[z][b][s]={code:row.code||"",name:row.name||"",spec:row.spec||"",qty:row.qty||""};
     });
 
-    await loadDbZoneData();
+    dbZoneLoaded=false;
     render();
-    if(dbZoneLoadError) setStatus(dbZoneLoadError,"warn");
-    else setStatus("");
+    setStatus("");
   }catch(err){
     console.error(err);
     setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
@@ -255,11 +256,13 @@ async function loadData(){
 }
 
 
-async function loadDbZoneData(){
+async function loadDbZoneData(forceRefresh=false){
+  if(dbZoneLoading) return;
+  dbZoneLoading=true;
   data[5]=[createBoard()];
   dbZoneLoadError="";
   try{
-    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"getDbDiff"})});
+    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"getDbDiff",forceRefresh:!!forceRefresh})});
     const text=await res.text();
 
     if(text==="NO_ACTION"){
@@ -328,6 +331,7 @@ async function loadDbZoneData(){
     mismatchRows.sort((a,b)=>a.code.localeCompare(b.code,'ko'));
 
     if(!mismatchRows.length){
+      dbZoneLoaded=true;
       setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
       return;
     }
@@ -338,9 +342,14 @@ async function loadDbZoneData(){
       ensureBoard(5,b);
       data[5][b][s]=row;
     });
+
+    dbZoneLoaded=true;
   }catch(err){
     console.warn("DB 구역 로드 실패:",err);
     dbZoneLoadError="DB재고 로드 실패: 네트워크/권한을 확인하세요.";
+    dbZoneLoaded=false;
+  }finally{
+    dbZoneLoading=false;
   }
 }
 
@@ -508,6 +517,7 @@ async function saveAll(){
 
     dirtyMap={};
     pendingLogs=[];
+    dbZoneLoaded=false;
     setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0})`,"ok");
     return;
   }catch(err){
@@ -543,6 +553,7 @@ async function saveAll(){
 
   dirtyMap={};
   pendingLogs=[];
+  dbZoneLoaded=false;
   setStatus("저장 완료","ok");
 }
 
@@ -613,11 +624,17 @@ document.getElementById("boardWrapper").addEventListener("scroll",()=>{
 });
 
 document.querySelectorAll(".zone-btn").forEach(btn=>{
-  btn.onclick=()=>{
+  btn.onclick=async ()=>{
     document.querySelectorAll(".zone-btn").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     currentZone=Number(btn.dataset.zone);
     currentBoardIndex=0;
+
+    if(currentZone===5 && !dbZoneLoaded){
+      setStatus("DB재고 불러오는 중...","info");
+      await loadDbZoneData();
+    }
+
     render();
     if(currentZone===5 && dbZoneLoadError) setStatus(dbZoneLoadError,"warn");
   };

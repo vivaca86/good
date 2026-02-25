@@ -2,6 +2,14 @@
 // GET : SLOTS 전체 데이터 반환
 // ============================
 function doGet() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('slots_v1');
+  if (cached) {
+    return ContentService
+      .createTextOutput(cached)
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   const sheet = SpreadsheetApp.getActive().getSheetByName('SLOTS');
   const data = sheet.getDataRange().getValues();
 
@@ -23,8 +31,11 @@ function doGet() {
       return obj;
     });
 
+  const json = JSON.stringify(result);
+  cache.put('slots_v1', json, 20);
+
   return ContentService
-    .createTextOutput(JSON.stringify(result))
+    .createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -44,7 +55,7 @@ function doPost(e) {
   if (payload.action === 'logUsage') return appendLog(payload);
   if (payload.action === 'createBoard') return createBoardRows(payload);
   if (payload.action === 'deleteBoard') return deleteBoardRows(payload);
-  if (payload.action === 'getDbDiff') return getDbDiffRows();
+  if (payload.action === 'getDbDiff') return getDbDiffRows(payload);
   if (payload.action === 'bulkSave') return bulkSave(payload);
 
   return ContentService.createTextOutput('NO_ACTION');
@@ -71,6 +82,7 @@ function updateSlot(payload) {
       sheet.getRange(i + 1, 5).setValue(payload.name || '');
       sheet.getRange(i + 1, 6).setValue(payload.spec || '');
       sheet.getRange(i + 1, 7).setValue(Number(payload.qty) || 0);
+      invalidateRuntimeCaches();
       return ContentService.createTextOutput('UPDATED');
     }
   }
@@ -85,6 +97,7 @@ function updateSlot(payload) {
     Number(payload.qty) || 0
   ]);
 
+  invalidateRuntimeCaches();
   return ContentService.createTextOutput('CREATED');
 }
 
@@ -92,6 +105,7 @@ function updateSlot(payload) {
 // USAGE_LOG 추가
 // ============================
 function appendLog(payload) {
+  const logSheet = SpreadsheetApp.getActive().getSheetByName('USAGE_LOG');
 
   logSheet.appendRow([
     new Date(),
@@ -102,6 +116,7 @@ function appendLog(payload) {
     Number(payload.qty) || 0
   ]);
 
+  invalidateRuntimeCaches();
   return ContentService.createTextOutput('LOGGED');
 }
 
@@ -128,6 +143,7 @@ function createBoardRows(payload) {
     sheet.appendRow([zone, board, slot, '', '', '', 0]);
   }
 
+  invalidateRuntimeCaches();
   return ContentService.createTextOutput('BOARD_CREATED');
 }
 
@@ -162,6 +178,7 @@ function deleteBoardRows(payload) {
   sheet.clearContents();
   sheet.getRange(1, 1, kept.length, kept[0].length).setValues(kept);
 
+  invalidateRuntimeCaches();
   return ContentService.createTextOutput('BOARD_DELETED');
 }
 
@@ -169,7 +186,17 @@ function deleteBoardRows(payload) {
 // ============================
 // DB구역용: DB 시트 데이터 반환(재고 0 제외)
 // ============================
-function getDbDiffRows() {
+function getDbDiffRows(payload) {
+  const useCache = !(payload && payload.forceRefresh === true);
+  const cache = CacheService.getScriptCache();
+  if (useCache) {
+    const cached = cache.get('db_diff_v1');
+    if (cached) {
+      return ContentService
+        .createTextOutput(cached)
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
   const dbSheet = SpreadsheetApp.getActive().getSheetByName('DB');
 
   if (!dbSheet) {
@@ -205,8 +232,11 @@ function getDbDiffRows() {
     });
   }
 
+  const json = JSON.stringify(rows);
+  cache.put('db_diff_v1', json, 30);
+
   return ContentService
-    .createTextOutput(JSON.stringify(rows))
+    .createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -284,7 +314,8 @@ function bulkSave(payload) {
 
   let logged = 0;
   if (logs.length > 0) {
-      const values = [];
+    const logSheet = SpreadsheetApp.getActive().getSheetByName('USAGE_LOG');
+    const values = [];
     for (let i = 0; i < logs.length; i++) {
       const log = logs[i] || {};
       const code = normalizeCode(log.code);
@@ -308,7 +339,14 @@ function bulkSave(payload) {
     }
   }
 
+  invalidateRuntimeCaches();
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'OK', updated: updated, created: created, logged: logged }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+function invalidateRuntimeCaches() {
+  const cache = CacheService.getScriptCache();
+  cache.removeAll(['slots_v1', 'db_diff_v1']);
 }
