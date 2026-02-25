@@ -8,10 +8,13 @@
 <style>
 body{margin:0;background:#e9e3da;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
 .app{width:100%;min-height:100vh;background:#f6f1ea;display:flex;flex-direction:column;}
-.top-bar{background:#dbe6f3;padding:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.zone-btn{font-size:17px;color:#4a5f82;}
-.zone-btn.active{font-weight:bold;color:#2f5fa7;}
-.control-btn{color:#2f5fa7;padding:4px 8px;border:1px solid #9ab0cd;border-radius:8px;background:#f6f9ff;}
+.top-bar{background:#dbe6f3;padding:10px 12px;display:flex;flex-direction:column;gap:10px;align-items:stretch;}
+.zone-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px;background:#cfd9e7;border:1px solid #a8b8d0;border-radius:12px;}
+.zone-btn{font-size:16px;color:#4a5f82;padding:6px 10px;border-radius:8px;border:1px solid transparent;background:transparent;}
+.zone-btn.active{font-weight:700;color:#2f5fa7;background:#eef4ff;border-color:#94acd0;}
+.zone-divider{color:#7e8fa8;font-size:14px;user-select:none;}
+.control-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.control-btn{color:#2f5fa7;padding:6px 10px;border:1px solid #9ab0cd;border-radius:8px;background:#f6f9ff;}
 .board-wrapper{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .board{min-width:100%;scroll-snap-align:start;}
 .board-title{padding:10px 14px;font-weight:700;color:#4a5f82;}
@@ -26,25 +29,33 @@ input.inline-edit{width:100%;border:none;outline:none;background:transparent;fon
 
 <div class="app">
 <div class="top-bar">
-  <button class="zone-btn active" data-zone="1">1구역</button>
-  <button class="zone-btn" data-zone="2">2구역</button>
-  <button class="zone-btn" data-zone="3">3구역</button>
-  <button class="zone-btn" data-zone="4">4구역</button>
-  <button class="zone-btn" data-zone="5">5구역</button>
-  <button id="addBoardBtn" class="control-btn edit-only" style="display:none;">현황판 추가</button>
-  <button id="deleteBoardBtn" class="control-btn edit-only" style="display:none;">현황판 삭제</button>
-  <button id="editBtn" class="control-btn">편집</button>
+  <div class="zone-tabs">
+    <button class="zone-btn active" data-zone="1">1구역</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="2">2구역</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="3">3구역</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="4">재고</button>
+    <span class="zone-divider">/</span>
+    <button class="zone-btn" data-zone="5">DB재고</button>
+  </div>
+  <div class="control-row">
+    <button id="addBoardBtn" class="control-btn edit-only" style="display:none;">현황판 추가</button>
+    <button id="deleteBoardBtn" class="control-btn edit-only" style="display:none;">현황판 삭제</button>
+    <button id="editBtn" class="control-btn">편집</button>
+  </div>
 </div>
 
-<div id="boardDotsWrap" style="padding:6px 12px 2px;text-align:center;">
-  <div id="boardDots" style="display:inline-block;color:#3f5f89;font-size:18px;letter-spacing:2px;">●</div>
-</div>
 <div id="statusBar" style="display:none;padding:10px 12px;font-size:14px;"></div>
 <div id="boardWrapper" class="board-wrapper"></div>
+<div id="boardDotsWrap" style="padding:8px 12px 12px;text-align:center;background:#f6f1ea;">
+  <div id="boardDots" style="display:inline-block;color:#3f5f89;font-size:18px;letter-spacing:2px;">●</div>
+</div>
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw_NNR_DKQAcz5DSqRzKKqqswdmadb3iobx0HtPE3IPwpQfajLQNfwfz4wd6CfSuY_y/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxk6IYQReO6S4F8-pr0spWviWFAW_PmQhMPPgVaBd4Gox1DK5MxQUi1fi9si_NBVZTB/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
