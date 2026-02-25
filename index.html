@@ -31,6 +31,7 @@ tbody tr:nth-child(even){background:#e9f0f8;}
 input.inline-edit{width:100%;border:none;outline:none;background:transparent;font-size:16px;text-align:center;line-height:1.25;}
 td.editing-cell{position:relative;background:#fff4c7 !important;box-shadow:inset 0 0 0 3px #2f5fa7;z-index:1;}
 td.selected-slot{background:#dff0ff !important;box-shadow:inset 0 0 0 2px #2f5fa7;}
+.cell-preview{position:fixed;z-index:9999;max-width:240px;background:#23272f;color:#fff;padding:8px 10px;border-radius:8px;font-size:14px;line-height:1.25;box-shadow:0 6px 16px rgba(0,0,0,.25);display:none;pointer-events:none;word-break:break-word;}
 </style>
 </head>
 <body>
@@ -64,6 +65,7 @@ td.selected-slot{background:#dff0ff !important;box-shadow:inset 0 0 0 2px #2f5fa
 <div id="boardDotsWrap" style="padding:8px 12px 12px;text-align:center;background:#f6f1ea;">
   <div id="boardDots" style="display:inline-block;color:#3f5f89;font-size:18px;letter-spacing:2px;">●</div>
 </div>
+<div id="cellPreview" class="cell-preview"></div>
 </div>
 
 <script>
@@ -92,6 +94,29 @@ function setStatus(message,type="info"){
   const palette={info:["#e9f0f8","#2f5fa7"],warn:["#fff2cc","#8a6d1f"],error:["#fbe4e6","#9f2d35"],ok:["#e8f5e9","#2e7d32"]};
   const p=palette[type]||palette.info;
   bar.style.display="block"; bar.style.background=p[0]; bar.style.color=p[1]; bar.textContent=message;
+}
+
+function hideCellPreview(){
+  const el=document.getElementById("cellPreview");
+  if(!el) return;
+  el.style.display="none";
+  el.textContent="";
+}
+
+function showCellPreview(text,cellEl){
+  if(!text) return;
+  const el=document.getElementById("cellPreview");
+  if(!el) return;
+  el.textContent=String(text);
+  el.style.display="block";
+
+  const rect=cellEl.getBoundingClientRect();
+  const margin=8;
+  const top=Math.max(margin, rect.top - el.offsetHeight - 10);
+  let left=rect.left + (rect.width/2) - (el.offsetWidth/2);
+  left=Math.max(margin, Math.min(left, window.innerWidth - el.offsetWidth - margin));
+  el.style.top=`${top}px`;
+  el.style.left=`${left}px`;
 }
 
 function updateBoardIndicator(){
@@ -124,6 +149,7 @@ function render(){
   const wrapper=document.getElementById("boardWrapper");
   wrapper.innerHTML="";
   selectedSlot=null;
+  hideCellPreview();
 
   data[currentZone].forEach((board,boardIndex)=>{
     const boardDiv=document.createElement("div");
@@ -147,7 +173,7 @@ function render(){
         td.textContent=row[field];
         td.title=String(row[field]||"");
         if(currentZone===5 && field==="qty") td.style.color="#c62828";
-        if(editMode || currentZone===5) td.onclick=()=>handleSlotTap(td,boardIndex,rowIndex,field);
+        td.onclick=(e)=>handleSlotTap(e,td,boardIndex,rowIndex,field);
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -242,7 +268,8 @@ function markDirty(zone,boardIndex,rowIndex){
   dirtyMap[`${zone}-${boardIndex}-${rowIndex}`]=true;
 }
 
-function handleSlotTap(cell,boardIndex,rowIndex,field){
+function handleSlotTap(event,cell,boardIndex,rowIndex,field){
+  if(event) event.stopPropagation();
   const same=selectedSlot &&
     selectedSlot.zone===currentZone &&
     selectedSlot.boardIndex===boardIndex &&
@@ -251,6 +278,14 @@ function handleSlotTap(cell,boardIndex,rowIndex,field){
 
   if(selectedSlot && selectedSlot.cellEl && selectedSlot.cellEl!==cell){
     selectedSlot.cellEl.classList.remove("selected-slot");
+  }
+
+  if(!editMode){
+    selectedSlot=null;
+    hideCellPreview();
+    const row=data[currentZone][boardIndex][rowIndex];
+    if(field==="name" || field==="spec") showCellPreview(row[field],cell);
+    return;
   }
 
   cell.classList.add("selected-slot");
@@ -419,6 +454,7 @@ async function deleteCurrentBoard(){
 
 document.getElementById("editBtn").onclick=async ()=>{
   editMode=!editMode;
+  hideCellPreview();
   const editBtn=document.getElementById("editBtn");
   editBtn.textContent=editMode?"완료":"편집";
   editBtn.classList.toggle("done-state",editMode);
@@ -459,6 +495,7 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
   };
 });
 
+document.addEventListener("click",hideCellPreview);
 loadData();
 </script>
 </body>
