@@ -73,7 +73,7 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbzIMhrnI2jtJtu3RywvzHoN4rXea6xivBSuBeT9ddDqzwVIIlh75z2NMmGh83HYOjKR/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxIWydVZ6mQLU8W2j-MD63o__bZ7_pdZf5BLfsiolPK87wZbjVqQMV5Q9bsQstl_IN0/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -102,12 +102,21 @@ function collectBoardInventory(){
       board.forEach(row=>{
         const code=normalizeCode(row.code);
         if(!code) return;
-        if(!byCode[code]) byCode[code]={code,name:normalizeCode(row.name),qty:0};
+        const name=normalizeCode(row.name);
+        const spec=normalizeCode(row.spec);
+        const displayName=[name,spec].filter(Boolean).join(' ').trim();
+
+        if(!byCode[code]) byCode[code]={code,name:displayName,qty:0};
         byCode[code].qty+=toNumber(row.qty);
-        if(!byCode[code].name && row.name) byCode[code].name=normalizeCode(row.name);
+        if(!byCode[code].name && displayName) byCode[code].name=displayName;
       });
     });
   }
+
+  Object.keys(byCode).forEach(code=>{
+    if(toNumber(byCode[code].qty)<=0) delete byCode[code];
+  });
+
   return byCode;
 }
 
@@ -289,25 +298,31 @@ async function loadDbZoneData(){
     const mismatchRows=[];
 
     Object.keys(dbByCode).forEach(code=>{
-      if(boardByCode[code]) return;
-      const row=dbByCode[code];
-      mismatchRows.push({
-        code:row.code,
-        name:row.name,
-        spec:"",
-        qty:String(row.qty),
-        mismatchType:"dbOnly"
-      });
+      const dbRow=dbByCode[code];
+      const boardRow=boardByCode[code];
+      const boardQty=boardRow?toNumber(boardRow.qty):0;
+
+      if(!boardRow || boardQty!==toNumber(dbRow.qty)){
+        mismatchRows.push({
+          code:dbRow.code,
+          name:dbRow.name,
+          spec:"",
+          qty:String(toNumber(dbRow.qty)),
+          mismatchType:"dbOnly"
+        });
+      }
     });
 
     Object.keys(boardByCode).forEach(code=>{
       if(dbByCode[code]) return;
       const row=boardByCode[code];
+      const qty=toNumber(row.qty);
+      if(qty<=0) return;
       mismatchRows.push({
         code:row.code,
         name:row.name,
         spec:"",
-        qty:String(toNumber(row.qty)),
+        qty:String(qty),
         mismatchType:"boardOnly"
       });
     });
@@ -315,7 +330,7 @@ async function loadDbZoneData(){
     mismatchRows.sort((a,b)=>a.code.localeCompare(b.code,'ko'));
 
     if(!mismatchRows.length){
-      setStatus("DB재고 비교 결과: 1~4구역 현황판과 코드 기준 차이가 없습니다.","ok");
+      setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
       return;
     }
 

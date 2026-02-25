@@ -167,53 +167,43 @@ function deleteBoardRows(payload) {
 
 
 // ============================
-// DB구역용: COMPARE diff>0 + DC 품명 조회
+// DB구역용: DB 시트 데이터 반환(재고 0 제외)
 // ============================
 function getDbDiffRows() {
-  const compareSheet = SpreadsheetApp.getActive().getSheetByName('COMPARE');
-  const dcSheet = SpreadsheetApp.getActive().getSheetByName('DC');
+  const dbSheet = SpreadsheetApp.getActive().getSheetByName('DB');
 
-  if (!compareSheet) {
+  if (!dbSheet) {
     return ContentService
       .createTextOutput(JSON.stringify([]))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  const compareData = compareSheet.getDataRange().getValues();
-  if (!compareData.length) {
+  const dbData = dbSheet.getDataRange().getValues();
+  if (!dbData.length) {
     return ContentService
       .createTextOutput(JSON.stringify([]))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  const compareHeaders = compareData[0].map(h => String(h).trim().toLowerCase());
+  const headers = dbData[0].map(h => String(h).trim().toLowerCase());
 
-  const codeIdx = findHeaderIndex(compareHeaders, ['code', '코드'], 0);
-  const qtyIdx = findHeaderIndex(compareHeaders, ['e', 'result', '결과', '재고', 'qty', '수량'], 4);
-
-  const nameByCode = {};
-  if (dcSheet) {
-    const dcData = dcSheet.getDataRange().getValues();
-    for (let i = 1; i < dcData.length; i++) {
-      const code = normalizeCode(dcData[i][0]);
-      const name = String(dcData[i][2] || '').trim();
-      if (code) nameByCode[code] = name;
-    }
-  }
-
-
+  const codeIdx = findHeaderIndex(headers, ['code', '코드', '상품코드'], 3);
+  const nameIdx = findHeaderIndex(headers, ['name', '품명', '상품명'], 4);
+  const specIdx = findHeaderIndex(headers, ['spec', '규격'], 5);
+  const qtyIdx = findHeaderIndex(headers, ['qty', '수량', '재고'], 6);
 
   const rows = [];
-  for (let i = 1; i < compareData.length; i++) {
-    const code = normalizeCode(compareData[i][codeIdx]);
-    const qty = parseNumber(compareData[i][qtyIdx]);
+  for (let i = 1; i < dbData.length; i++) {
+    const code = normalizeCode(dbData[i][codeIdx]);
+    const qty = parseNumber(dbData[i][qtyIdx]);
     if (!code || qty <= 0) continue;
 
-    const compareName = String(compareData[i][2] || '').trim();
+    const name = String(dbData[i][nameIdx] || '').trim();
+    const spec = String(dbData[i][specIdx] || '').trim();
 
     rows.push({
       code: code,
-      name: compareName || nameByCode[code] || '',
+      name: [name, spec].filter(Boolean).join(' ').trim(),
       qty: qty
     });
   }
