@@ -32,10 +32,10 @@ input.inline-edit{width:100%;border:none;outline:none;background:transparent;fon
   <button class="zone-btn" data-zone="4">4구역</button>
   <button class="zone-btn" data-zone="5">5구역</button>
   <button id="prevBoardBtn" class="control-btn">◀</button>
-  <span id="boardIndicator" style="min-width:72px;text-align:center;color:#3f5f89;">1 / 1</span>
+  <div id="boardDots" style="min-width:72px;text-align:center;color:#3f5f89;font-size:18px;letter-spacing:2px;">●</div>
   <button id="nextBoardBtn" class="control-btn">▶</button>
-  <button id="addBoardBtn" class="control-btn">현황판 추가</button>
-  <button id="deleteBoardBtn" class="control-btn">현황판 삭제</button>
+  <button id="addBoardBtn" class="control-btn edit-only" style="display:none;">현황판 추가</button>
+  <button id="deleteBoardBtn" class="control-btn edit-only" style="display:none;">현황판 삭제</button>
   <button id="editBtn" class="control-btn">편집</button>
 </div>
 
@@ -71,7 +71,15 @@ function setStatus(message,type="info"){
 function updateBoardIndicator(){
   const total=data[currentZone].length;
   if(currentBoardIndex>total-1) currentBoardIndex=Math.max(0,total-1);
-  document.getElementById("boardIndicator").textContent=`${currentBoardIndex+1} / ${total}`;
+  const dots=[];
+  for(let i=0;i<total;i++) dots.push(i===currentBoardIndex?"●":"○");
+  document.getElementById("boardDots").textContent=dots.join(" ");
+}
+
+function syncEditControls(){
+  document.querySelectorAll(".edit-only").forEach(el=>{
+    el.style.display=editMode?"inline-block":"none";
+  });
 }
 
 function render(){
@@ -108,6 +116,7 @@ function render(){
   });
 
   updateBoardIndicator();
+  syncEditControls();
   requestAnimationFrame(()=>goToBoard(currentBoardIndex,false));
 }
 
@@ -187,11 +196,15 @@ async function saveAll(){
 }
 
 async function addBoard(){
-  ensureBoard(currentZone,data[currentZone].length);
-  const boardNo=data[currentZone].length;
+  const boardNo=data[currentZone].length+1;
   const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"createBoard",zone:currentZone,board:boardNo})});
   const text=await res.text();
-  if(text!=="BOARD_CREATED"){ setStatus(`현황판 추가 실패: ${text}`,"error"); return; }
+  if(text!=="BOARD_CREATED"){
+    if(text==="NO_ACTION") setStatus("현황판 추가 실패: 서버 코드 재배포가 필요합니다.","error");
+    else setStatus(`현황판 추가 실패: ${text}`,"error");
+    return;
+  }
+  ensureBoard(currentZone,boardNo-1);
   setStatus(`현황판 ${boardNo} 추가 완료`,"ok");
   render();
   goToBoard(boardNo-1);
@@ -203,7 +216,11 @@ async function deleteCurrentBoard(){
   if(!confirm(`${currentZone}구역의 ${boardNo}번 현황판을 삭제할까요?`)) return;
   const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"deleteBoard",zone:currentZone,board:boardNo})});
   const text=await res.text();
-  if(text!=="BOARD_DELETED"){ setStatus(`현황판 삭제 실패: ${text}`,"error"); return; }
+  if(text!=="BOARD_DELETED"){
+    if(text==="NO_ACTION") setStatus("현황판 삭제 실패: 서버 코드 재배포가 필요합니다.","error");
+    else setStatus(`현황판 삭제 실패: ${text}`,"error");
+    return;
+  }
   data[currentZone].splice(currentBoardIndex,1);
   setStatus(`현황판 ${boardNo} 삭제 완료`,"ok");
   render();
