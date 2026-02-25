@@ -113,9 +113,6 @@ function collectBoardInventory(){
     });
   }
 
-  Object.keys(byCode).forEach(code=>{
-    if(toNumber(byCode[code].qty)<=0) delete byCode[code];
-  });
 
   return byCode;
 }
@@ -300,14 +297,16 @@ async function loadDbZoneData(){
     Object.keys(dbByCode).forEach(code=>{
       const dbRow=dbByCode[code];
       const boardRow=boardByCode[code];
+      const dbQty=toNumber(dbRow.qty);
       const boardQty=boardRow?toNumber(boardRow.qty):0;
+      const diffQty=Math.abs(dbQty-boardQty);
 
-      if(!boardRow || boardQty!==toNumber(dbRow.qty)){
+      if(!boardRow || diffQty!==0){
         mismatchRows.push({
           code:dbRow.code,
           name:dbRow.name,
           spec:"",
-          qty:String(toNumber(dbRow.qty)),
+          qty:String(diffQty),
           mismatchType:"dbOnly"
         });
       }
@@ -317,7 +316,6 @@ async function loadDbZoneData(){
       if(dbByCode[code]) return;
       const row=boardByCode[code];
       const qty=toNumber(row.qty);
-      if(qty<=0) return;
       mismatchRows.push({
         code:row.code,
         name:row.name,
