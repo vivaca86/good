@@ -200,8 +200,16 @@ async function addBoard(){
   const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"createBoard",zone:currentZone,board:boardNo})});
   const text=await res.text();
   if(text!=="BOARD_CREATED"){
-    if(text==="NO_ACTION") setStatus("현황판 추가 실패: 서버 코드 재배포가 필요합니다.","error");
-    else setStatus(`현황판 추가 실패: ${text}`,"error");
+    if(text==="NO_ACTION"){
+      // 구버전 Apps Script( createBoard 미지원 ) 호환:
+      // 로컬에서 현황판만 먼저 늘리고, 실제 데이터는 updateSlot(upsert) 저장 시 생성되도록 처리
+      ensureBoard(currentZone,boardNo-1);
+      setStatus(`현황판 ${boardNo} 추가(호환모드). 데이터 입력 후 저장하면 시트에 생성됩니다.`,"warn");
+      render();
+      goToBoard(boardNo-1);
+      return;
+    }
+    setStatus(`현황판 추가 실패: ${text}`,"error");
     return;
   }
   ensureBoard(currentZone,boardNo-1);
@@ -217,7 +225,7 @@ async function deleteCurrentBoard(){
   const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"deleteBoard",zone:currentZone,board:boardNo})});
   const text=await res.text();
   if(text!=="BOARD_DELETED"){
-    if(text==="NO_ACTION") setStatus("현황판 삭제 실패: 서버 코드 재배포가 필요합니다.","error");
+    if(text==="NO_ACTION") setStatus("현황판 삭제는 현재 서버 배포에서 미지원입니다. (추가는 호환모드 가능)","warn");
     else setStatus(`현황판 삭제 실패: ${text}`,"error");
     return;
   }
