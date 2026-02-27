@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="재고 시스템 아이콘">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2f5f89"/>
+      <stop offset="100%" stop-color="#6ab28b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#g)"/>
+  <rect x="96" y="124" width="320" height="264" rx="20" fill="#ffffff" opacity="0.95"/>
+  <rect x="128" y="168" width="120" height="24" rx="6" fill="#2f5f89"/>
+  <rect x="264" y="168" width="120" height="24" rx="6" fill="#2f5f89"/>
+  <rect x="128" y="212" width="120" height="24" rx="6" fill="#6ab28b"/>
+  <rect x="264" y="212" width="120" height="24" rx="6" fill="#6ab28b"/>
+  <rect x="128" y="256" width="256" height="24" rx="6" fill="#2f5f89"/>
+  <rect x="128" y="300" width="176" height="24" rx="6" fill="#6ab28b"/>
+</svg>
