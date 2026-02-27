@@ -3,183 +3,745 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#dbe6f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
 <title>재고 시스템 최종버전</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-body{margin:0;background:#e9e3da;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
-.app{width:100%;min-height:100vh;background:#f6f1ea;display:flex;flex-direction:column;}
-.top-bar{background:#dbe6f3;padding:12px;display:flex;gap:12px;}
-.zone-btn{font-size:17px;color:#4a5f82;}
-.zone-btn.active{font-weight:bold;color:#2f5fa7;}
-.control-btn{margin-left:auto;color:#2f5fa7;}
+body{margin:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#334155;}
+.app{width:100%;min-height:100vh;background:linear-gradient(180deg,#fcfdff 0%,#f7f9fc 100%);display:flex;flex-direction:column;}
+.top-bar{background:rgba(255,255,255,.92);backdrop-filter:blur(6px);padding:12px;display:flex;flex-direction:column;gap:10px;align-items:stretch;border-bottom:1px solid #e5ebf3;box-shadow:0 8px 24px rgba(148,163,184,.18);}
+.zone-tabs{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:8px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 8px 20px rgba(148,163,184,.12);-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.zone-btn{font-size:15px;color:#334155;padding:7px 12px;border-radius:10px;border:1px solid #e2e8f0;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(148,163,184,.18);white-space:nowrap;word-break:keep-all;flex:0 0 auto;}
+.zone-btn.active{font-weight:700;color:#0f172a;background:linear-gradient(180deg,#ffffff 0%,#eef4ff 100%);border-color:#cbdaf8;box-shadow:0 6px 16px rgba(59,130,246,.2);}
+.zone-divider{color:#c0cddd;font-size:14px;user-select:none;}
+.control-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.control-row.compact{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.control-btn{color:#1e293b;padding:7px 12px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(148,163,184,.16);font-size:14px;font-weight:600;}
+.control-btn.board-action,.control-btn.clip-action,.control-btn.primary-action{background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);border-color:#dbe4ef;}
+.control-btn.board-action{padding:4px 8px;font-size:12px;opacity:.82;}
+#deleteBoardBtn{border-color:#fecaca;color:#b91c1c;background:linear-gradient(180deg,#fff 0%,#fff5f5 100%);} #deleteBoardBtn .btn-icon{color:#b91c1c;}
+.control-btn.primary-action.done-state{background:linear-gradient(180deg,#ffffff 0%,#ecfdf3 100%);border-color:#86efac;color:#166534;}
+.control-btn.armed{border-color:#f59e0b;background:linear-gradient(180deg,#fff7ed 0%,#ffedd5 100%);color:#9a3412;}
+#redoBtn{display:none;}
+.db-freshness{font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:4px 8px;align-self:flex-start;}
+.search-input{flex:1 1 220px;min-width:180px;border:1px solid #dbe4ef;border-radius:10px;padding:8px 10px;background:#fff;color:#334155;font-size:16px;}
+.refresh-btn{flex:0 0 auto;border:1px solid #dbe4ef;background:#fff;border-radius:10px;padding:7px 10px;color:#334155;font-size:13px;white-space:nowrap;}
+.control-btn.saving{opacity:.65;pointer-events:none;}
+.btn-icon{width:18px;height:18px;border-radius:6px;background:linear-gradient(180deg,#f8fbff 0%,#e8eff8 100%);border:1px solid #d6dfeb;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#475569;box-shadow:inset 0 1px 0 rgba(255,255,255,.9);}
 .board-wrapper{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .board{min-width:100%;scroll-snap-align:start;}
-table{width:100%;border-collapse:collapse;}
-thead{background:#b8c7db;}
-th,td{padding:14px;font-size:16px;border-bottom:1px solid #d7dbe2;}
-tbody tr:nth-child(even){background:#e9f0f8;}
-input.inline-edit{width:100%;border:none;outline:none;background:transparent;font-size:16px;}
-.selected{background:rgba(255,220,120,0.18);}
+.board-title{padding:12px 14px;font-weight:700;color:#334155;}
+table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid #e2e8f0;background:#fff;}
+thead{background:#f5f8fc;}
+th,td{padding:12px 10px;font-size:16px;border-bottom:1px solid #e5ebf3;border-right:1px solid #e5ebf3;text-align:center;vertical-align:middle;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+th:last-child,td:last-child{border-right:none;}
+tbody td{height:52px;}
+tbody tr:nth-child(even){background:#f8fbff;}
+input.inline-edit{width:100%;border:none;outline:none;background:transparent;font-size:16px;text-align:center;line-height:1.25;}
+td.editing-cell{position:relative;background:#fffef2 !important;box-shadow:inset 0 0 0 3px #93c5fd;z-index:1;}
+td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5fa;}
+.cell-preview{position:fixed;z-index:9999;max-width:240px;background:#23272f;color:#fff;padding:8px 10px;border-radius:8px;font-size:14px;line-height:1.25;box-shadow:0 6px 16px rgba(0,0,0,.25);display:none;pointer-events:none;word-break:break-word;}
+@media (max-width: 520px){
+  .zone-tabs{gap:6px;padding:6px;}
+  .zone-btn{font-size:13px;padding:6px 9px;gap:4px;}
+  .zone-btn .btn-icon{width:14px;height:14px;font-size:9px;}
+  .search-input{min-width:140px;}
+}
+
+
+.editor-nav{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:12000;display:none;gap:8px;justify-content:flex-end;padding:8px;background:rgba(255,255,255,.95);border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 8px 22px rgba(15,23,42,.15);backdrop-filter:blur(6px);}
+.editor-nav button{border:1px solid #cfd8e6;background:#fff;border-radius:10px;padding:7px 12px;font-weight:700;color:#334155;min-width:42px;}
+.editor-nav button.done{border-color:#86efac;color:#166534;background:#f0fdf4;}
 </style>
 </head>
 <body>
 
 <div class="app">
 <div class="top-bar">
-  <button class="zone-btn active" data-zone="1">1구역</button>
-  <button class="zone-btn" data-zone="2">2구역</button>
-  <button class="zone-btn" data-zone="3">3구역</button>
-  <button class="zone-btn" data-zone="4">4구역</button>
-  <button class="zone-btn" data-zone="5">5구역</button>
-  <button id="editBtn" class="control-btn">편집</button>
+  <div class="zone-tabs">
+    <button class="zone-btn active" data-zone="1"><span class="btn-icon">①</span>1구역</button>
+    <button class="zone-btn" data-zone="2"><span class="btn-icon">②</span>2구역</button>
+    <button class="zone-btn" data-zone="3"><span class="btn-icon">③</span>3구역</button>
+    <button class="zone-btn" data-zone="4"><span class="btn-icon">④</span>4구역</button>
+    <button class="zone-btn" data-zone="5"><span class="btn-icon">DB</span>DB재고</button>
+  </div>
+  <div class="control-row">
+    <button id="addBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">＋</span>현황판 추가</button>
+    <button id="deleteBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">－</span>현황판 삭제</button>
+    <button id="clearBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="품목삭제 모드"><span class="btn-icon">⌫</span>품목삭제</button>
+    <button id="undoBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="마지막 삭제/잘라내기 되돌리기"><span class="btn-icon">↶</span>되돌리기</button>
+    <button id="redoBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="되돌리기 취소"><span class="btn-icon">↷</span>다시실행</button>
+    <button id="cutBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">✂</span>잘라내기</button>
+    <button id="pasteBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">📋</span>붙여넣기</button>
+    <button id="copyBtn" class="control-btn clip-action edit-only db-only" style="display:none;"><span class="btn-icon">⧉</span>복사</button>
+    <button id="installBtn" class="control-btn" style="display:none;"><span class="btn-icon">⬇</span>앱 설치</button>
+    <input id="searchInput" class="search-input" type="text" placeholder="코드/품목 검색" />
+    <button id="refreshDbBtn" class="refresh-btn" type="button" style="display:none;">DB 새로고침</button>
+    <button id="editBtn" class="control-btn primary-action"><span class="btn-icon">✎</span>편집</button>
+  </div>
+  <div id="dbFreshness" class="db-freshness" style="display:none;">DB 갱신시각: -</div>
 </div>
 
+<div id="statusBar" style="display:none;padding:10px 12px;font-size:14px;"></div>
 <div id="boardWrapper" class="board-wrapper"></div>
+<div id="boardDotsWrap" style="padding:8px 12px 12px;text-align:center;background:#f7f9fc;">
+  <div id="boardDots" style="display:inline-block;color:#64748b;font-size:18px;letter-spacing:2px;">●</div>
+</div>
+<div id="cellPreview" class="cell-preview"></div>
+<div id="editorNav" class="editor-nav" aria-hidden="true">
+  <button id="editorPrevBtn" type="button" aria-label="이전 셀">&lt;</button>
+  <button id="editorNextBtn" type="button" aria-label="다음 셀">&gt;</button>
+  <button id="editorDoneBtn" type="button" class="done" aria-label="완료">✓</button>
+</div>
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxk6IYQReO6S4F8-pr0spWviWFAW_PmQhMPPgVaBd4Gox1DK5MxQUi1fi9si_NBVZTB/exec";
-
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxF07PRUFrHVcUXKdKn3-9EdWQSD734SGI_6fdDqfJNwH7UdXXLTtJjz213B4YCYAIG/exec";
 const slotsPerBoard=12;
 let currentZone=1;
+let currentBoardIndex=0;
 let editMode=false;
-let selectedCell=null;
 let dirtyMap={};
+let dbZoneLoadError="";
+let selectedSlot=null;
+let clipboardData=null;
+let pendingLogs=[];
+let deferredInstallPrompt=null;
+let dbZoneLoaded=false;
+let dbZoneLoading=false;
+let deleteModeActive=false;
+let undoStack=[];
+let redoStack=[];
+let activeEditor=null;
+let editorCommitQueue=Promise.resolve();
+let dbLastUpdatedAt="";
+let searchKeyword="";
+let isSaving=false;
 
 const data={};
-for(let z=1;z<=5;z++){
-  data[z]=[createBoard()];
-}
+for(let z=1;z<=5;z++) data[z]=[createBoard()];
 
 function createBoard(){
-  const arr=[];
-  for(let i=0;i<slotsPerBoard;i++){
-    arr.push({code:"",name:"",spec:"",qty:""});
+  return Array.from({length:slotsPerBoard},()=>({code:"",name:"",spec:"",qty:""}));
+}
+function toNumber(value){ const num=Number(value); return Number.isFinite(num)?num:0; }
+function normalizeCode(value){ return String(value||"").trim(); }
+function ensureBoard(zone,boardIndex){ while(data[zone].length<=boardIndex) data[zone].push(createBoard()); }
+
+
+function updateDbFreshnessLabel(){
+  const el=document.getElementById("dbFreshness");
+  if(!el) return;
+  if(currentZone!==5 || !dbLastUpdatedAt){
+    el.style.display="none";
+    el.textContent="DB 갱신시각: -";
+    return;
   }
-  return arr;
+  el.style.display="inline-block";
+  el.textContent=`DB 갱신시각: ${dbLastUpdatedAt}`;
 }
 
-async function loadData(){
-  const res=await fetch(SCRIPT_URL);
-  const rows=await res.json();
+function syncTopBarLayout(){
+  const controlRow=document.querySelector(".control-row");
+  if(controlRow) controlRow.classList.toggle("compact", !editMode);
 
-  rows.forEach(row=>{
-    const z=row.zone;
-    const b=row.board-1;
-    const s=row.slot_no-1;
+  const searchInput=document.getElementById("searchInput");
+  if(searchInput) searchInput.style.display=editMode?"none":"inline-block";
+}
 
-    if(data[z]&&data[z][b]){
-      data[z][b][s]={
-        code:row.code||"",
-        name:row.name||"",
-        spec:row.spec||"",
-        qty:row.qty||""
-      };
-    }
+function syncDbToolsVisibility(){
+  const refreshBtn=document.getElementById("refreshDbBtn");
+  if(refreshBtn) refreshBtn.style.display=(!editMode && currentZone===5)?"inline-block":"none";
+  updateDbFreshnessLabel();
+}
+
+async function apiPost(payload,{silent=false}={}){
+  try{
+    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify(payload)});
+    return await res.text();
+  }catch(err){
+    if(!silent) setStatus("네트워크 오류가 발생했습니다. 잠시 후 다시 시도하세요.","error");
+    try{
+      await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"logClientError",area:payload&&payload.action||"unknown",message:err&&err.message||String(err),detail:JSON.stringify(payload||{}),ua:navigator.userAgent})});
+    }catch(_){ }
+    throw err;
+  }
+}
+
+function collectBoardInventory(){
+  const byCode={};
+  for(let zone=1;zone<=4;zone++){
+    data[zone].forEach(board=>{
+      board.forEach(row=>{
+        const code=normalizeCode(row.code);
+        if(!code) return;
+        const name=normalizeCode(row.name);
+        const spec=normalizeCode(row.spec);
+        const displayName=[name,spec].filter(Boolean).join(' ').trim();
+
+        if(!byCode[code]) byCode[code]={code,name:displayName,qty:0};
+        byCode[code].qty+=toNumber(row.qty);
+        if(!byCode[code].name && displayName) byCode[code].name=displayName;
+      });
+    });
+  }
+
+
+  return byCode;
+}
+
+function setStatus(message,type="info"){
+  const bar=document.getElementById("statusBar");
+  if(!message){ bar.style.display="none"; bar.textContent=""; return; }
+  const palette={info:["#e9f0f8","#2f5fa7"],warn:["#fff2cc","#8a6d1f"],error:["#fbe4e6","#9f2d35"],ok:["#e8f5e9","#2e7d32"]};
+  const p=palette[type]||palette.info;
+  bar.style.display="block"; bar.style.background=p[0]; bar.style.color=p[1]; bar.textContent=message;
+}
+
+function hideCellPreview(){
+  const el=document.getElementById("cellPreview");
+  if(!el) return;
+  el.style.display="none";
+  el.textContent="";
+}
+
+function showCellPreview(text,cellEl){
+  if(!text) return;
+  const el=document.getElementById("cellPreview");
+  if(!el) return;
+  el.textContent=String(text);
+  el.style.display="block";
+
+  const rect=cellEl.getBoundingClientRect();
+  const margin=8;
+  const top=Math.max(margin, rect.top - el.offsetHeight - 10);
+  let left=rect.left + (rect.width/2) - (el.offsetWidth/2);
+  left=Math.max(margin, Math.min(left, window.innerWidth - el.offsetWidth - margin));
+  el.style.top=`${top}px`;
+  el.style.left=`${left}px`;
+}
+
+function updateBoardIndicator(){
+  const total=data[currentZone].length;
+  if(currentBoardIndex>total-1) currentBoardIndex=Math.max(0,total-1);
+  const dots=[];
+  for(let i=0;i<total;i++) dots.push(i===currentBoardIndex?"●":"○");
+  const el=document.getElementById("boardDots");
+  el.textContent=dots.join(" ");
+  el.dataset.total=String(total);
+}
+
+function syncEditControls(){
+  document.querySelectorAll(".edit-only").forEach(el=>{
+    el.style.display=editMode?"inline-block":"none";
   });
 
-  render();
+  document.querySelectorAll(".non-db-only").forEach(el=>{
+    if(!editMode || currentZone===5){ el.style.display="none"; return; }
+    el.style.display="inline-block";
+  });
+
+  document.querySelectorAll(".db-only").forEach(el=>{
+    if(!editMode || currentZone!==5){ el.style.display="none"; return; }
+    el.style.display="inline-block";
+  });
 }
 
 function render(){
   const wrapper=document.getElementById("boardWrapper");
   wrapper.innerHTML="";
+  selectedSlot=null;
+  hideCellPreview();
+  if(!editMode || currentZone===5) setEditorNavVisible(false);
+
+  const visibleFields=currentZone===5?["code","name","qty"]:["code","name","spec","qty"];
 
   data[currentZone].forEach((board,boardIndex)=>{
     const boardDiv=document.createElement("div");
     boardDiv.className="board";
+    boardDiv.dataset.boardIndex=String(boardIndex);
+
+    const title=document.createElement("div");
+    title.className="board-title";
+    title.textContent=`현황판 ${boardIndex+1}`;
 
     const table=document.createElement("table");
-    table.innerHTML=`
-      <thead>
-        <tr>
-          <th>코드</th><th>품목</th><th>규격</th><th>재고</th>
-        </tr>
-      </thead><tbody></tbody>`;
-
+    const columns=currentZone===5?['코드','품명','재고']:['코드','품목','규격','재고'];
+    table.innerHTML=`<thead><tr>${columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody></tbody>`;
     const tbody=table.querySelector("tbody");
 
     board.forEach((row,rowIndex)=>{
+      if(searchKeyword){
+        const haystack=visibleFields.map(f=>String(row[f]||"")).join(" ").toLowerCase();
+        if(!haystack.includes(searchKeyword)) return;
+      }
       const tr=document.createElement("tr");
-
-      ["code","name","spec","qty"].forEach(field=>{
+      const fields=currentZone===5?["code","name","qty"]:["code","name","spec","qty"];
+      fields.forEach(field=>{
         const td=document.createElement("td");
         td.textContent=row[field];
-        if(editMode){
-          td.onclick=()=>editCell(td,boardIndex,rowIndex,field);
+        td.title=String(row[field]||"");
+        if(field==="qty"){ td.style.fontWeight="700"; td.style.fontSize="18px"; }
+        if(currentZone===5 && field==="qty") {
+          if(row.mismatchType==="dbOnly") td.style.color="#c62828";
+          else if(row.mismatchType==="boardOnly") td.style.color="#1565c0";
+          else td.style.color="#334155";
         }
+        td.onclick=(e)=>handleSlotTap(e,td,boardIndex,rowIndex,field);
         tr.appendChild(td);
       });
-
       tbody.appendChild(tr);
     });
 
+    boardDiv.appendChild(title);
     boardDiv.appendChild(table);
     wrapper.appendChild(boardDiv);
   });
+
+  updateBoardIndicator();
+  syncEditControls();
+  syncTopBarLayout();
+  syncDbToolsVisibility();
+  requestAnimationFrame(()=>goToBoard(currentBoardIndex,false));
 }
 
-function editCell(cell,boardIndex,rowIndex,field){
+function goToBoard(index,smooth=true){
+  const wrapper=document.getElementById("boardWrapper");
+  const total=data[currentZone].length;
+  currentBoardIndex=Math.max(0,Math.min(index,total-1));
+  const left=wrapper.clientWidth*currentBoardIndex;
+  wrapper.scrollTo({left,behavior:smooth?"smooth":"auto"});
+  updateBoardIndicator();
+}
+
+async function loadData(){
+  try{
+    const res=await fetch(SCRIPT_URL);
+    const rows=await res.json();
+    if(!Array.isArray(rows)) throw new Error("응답 형식 오류");
+
+    rows.forEach(row=>{
+      const z=Number(row.zone); const b=Number(row.board)-1; const s=Number(row.slot_no)-1;
+      if(!z || z===5 || b<0 || s<0 || s>=slotsPerBoard) return;
+      ensureBoard(z,b);
+      data[z][b][s]={code:row.code||"",name:row.name||"",spec:row.spec||"",qty:row.qty||""};
+    });
+
+    dbZoneLoaded=false;
+    dbLastUpdatedAt="";
+    updateDbFreshnessLabel();
+    render();
+    setStatus("");
+  }catch(err){
+    console.error(err);
+    setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
+  }
+}
+
+
+async function loadDbZoneData(forceRefresh=false){
+  if(dbZoneLoading) return;
+  dbZoneLoading=true;
+  data[5]=[createBoard()];
+  dbZoneLoadError="";
+  try{
+    const text=await apiPost({action:"getDbDiff",forceRefresh:!!forceRefresh});
+
+    if(text==="NO_ACTION"){
+      dbZoneLoadError="DB재고 로드 실패: Apps Script가 구버전입니다. 서버를 재배포하세요.";
+      return;
+    }
+
+    let rows=[];
+    try{
+      rows=JSON.parse(text);
+    }catch(_){
+      dbZoneLoadError="DB재고 로드 실패: 서버 응답 형식을 확인하세요.";
+      return;
+    }
+
+    if(!Array.isArray(rows)){
+      dbZoneLoadError="DB재고 로드 실패: 배열 응답이 아닙니다.";
+      return;
+    }
+
+    const boardByCode=collectBoardInventory();
+    const dbByCode={};
+    rows.forEach(row=>{
+      const code=normalizeCode(row.code);
+      if(!code) return;
+      dbByCode[code]={
+        code,
+        name:normalizeCode(row.name),
+        qty:toNumber(row.qty)
+      };
+    });
+
+    const mismatchRows=[];
+
+    Object.keys(dbByCode).forEach(code=>{
+      const dbRow=dbByCode[code];
+      const boardRow=boardByCode[code];
+      const dbQty=toNumber(dbRow.qty);
+      const boardQty=boardRow?toNumber(boardRow.qty):0;
+      const diffQty=Math.abs(dbQty-boardQty);
+
+      if(!boardRow || diffQty!==0){
+        mismatchRows.push({
+          code:dbRow.code,
+          name:dbRow.name,
+          spec:"",
+          qty:String(diffQty),
+          mismatchType:"dbOnly"
+        });
+      }
+    });
+
+    Object.keys(boardByCode).forEach(code=>{
+      if(dbByCode[code]) return;
+      const row=boardByCode[code];
+      const qty=toNumber(row.qty);
+      mismatchRows.push({
+        code:row.code,
+        name:row.name,
+        spec:"",
+        qty:String(qty),
+        mismatchType:"boardOnly"
+      });
+    });
+
+    mismatchRows.sort((a,b)=>{
+      const rank=(row)=>row.mismatchType==='dbOnly'?0:1;
+      const byType=rank(a)-rank(b);
+      if(byType!==0) return byType;
+      return a.code.localeCompare(b.code,'ko');
+    });
+
+    if(!mismatchRows.length){
+      dbZoneLoaded=true;
+      dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      updateDbFreshnessLabel();
+      setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
+      return;
+    }
+
+    mismatchRows.forEach((row,idx)=>{
+      const b=Math.floor(idx/slotsPerBoard);
+      const s=idx%slotsPerBoard;
+      ensureBoard(5,b);
+      data[5][b][s]=row;
+    });
+
+    dbZoneLoaded=true;
+  }catch(err){
+    console.warn("DB 구역 로드 실패:",err);
+    dbZoneLoadError="DB재고 로드 실패: 네트워크/권한을 확인하세요.";
+    dbZoneLoaded=false;
+  }finally{
+    dbZoneLoading=false;
+  }
+}
+
+function markDirty(zone,boardIndex,rowIndex){
+  dirtyMap[`${zone}-${boardIndex}-${rowIndex}`]=true;
+}
+
+function pushUndoSnapshot(zone,boardIndex,rowIndex,row){
+  redoStack=[];
+  undoStack.push({
+    zone,
+    boardIndex,
+    rowIndex,
+    row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(row.qty||"")}
+  });
+  if(undoStack.length>50) undoStack.shift();
+}
+
+function clearRow(zone,boardIndex,rowIndex){
+  data[zone][boardIndex][rowIndex]={code:"",name:"",spec:"",qty:""};
+  markDirty(zone,boardIndex,rowIndex);
+}
+
+function performDeleteWithConfirm(zone,boardIndex,rowIndex){
+  const row=data[zone][boardIndex][rowIndex];
+  const code=row.code||"";
+  const name=[row.name||"",row.spec||""].filter(Boolean).join(" ").trim();
+  const qty=String(row.qty||"");
+  if(!code && !name && !qty){
+    alert("이미 비어있는 슬롯입니다.");
+    return false;
+  }
+
+  const ok=confirm(`[품목코드:${code||"-"} / 품목명:${name||"-"} / 재고:${qty||"0"}] 항목을 지우시겠습니까?`);
+  if(!ok) return false;
+
+  pushUndoSnapshot(zone,boardIndex,rowIndex,row);
+  clearRow(zone,boardIndex,rowIndex);
+  setStatus("품목 삭제 완료 (되돌리기 가능)","ok");
+  return true;
+}
+
+function undoDelete(){
+  if(!undoStack.length){
+    alert("되돌릴 삭제 기록이 없습니다.");
+    return;
+  }
+  const last=undoStack.pop();
+  const current=data[last.zone][last.boardIndex][last.rowIndex];
+  redoStack.push({zone:last.zone,boardIndex:last.boardIndex,rowIndex:last.rowIndex,row:{...current}});
+  ensureBoard(last.zone,last.boardIndex);
+  data[last.zone][last.boardIndex][last.rowIndex]={...last.row};
+  markDirty(last.zone,last.boardIndex,last.rowIndex);
+  setStatus("마지막 삭제를 되돌렸습니다.","ok");
+  render();
+}
+
+function redoDelete(){
+  if(!redoStack.length){
+    alert("다시실행할 기록이 없습니다.");
+    return;
+  }
+  const last=redoStack.pop();
+  const current=data[last.zone][last.boardIndex][last.rowIndex];
+  undoStack.push({zone:last.zone,boardIndex:last.boardIndex,rowIndex:last.rowIndex,row:{...current}});
+  ensureBoard(last.zone,last.boardIndex);
+  data[last.zone][last.boardIndex][last.rowIndex]={...last.row};
+  markDirty(last.zone,last.boardIndex,last.rowIndex);
+  setStatus("되돌리기 취소를 적용했습니다.","ok");
+  render();
+}
+
+async function handleSlotTap(event,cell,boardIndex,rowIndex,field){
+  if(event) event.stopPropagation();
+  const same=selectedSlot &&
+    selectedSlot.zone===currentZone &&
+    selectedSlot.boardIndex===boardIndex &&
+    selectedSlot.rowIndex===rowIndex &&
+    selectedSlot.field===field;
+
+  if(selectedSlot && selectedSlot.cellEl && selectedSlot.cellEl!==cell){
+    selectedSlot.cellEl.classList.remove("selected-slot");
+  }
+
+  if(!editMode){
+    selectedSlot=null;
+    hideCellPreview();
+    setEditorNavVisible(false);
+    const row=data[currentZone][boardIndex][rowIndex];
+    if(field==="name" || field==="spec") showCellPreview(row[field],cell);
+    return;
+  }
+
+  cell.classList.add("selected-slot");
+  selectedSlot={zone:currentZone,boardIndex,rowIndex,field,cellEl:cell};
+
+  if(editMode && currentZone!==5 && deleteModeActive){
+    const deleted=performDeleteWithConfirm(currentZone,boardIndex,rowIndex);
+    if(deleted) render();
+    return;
+  }
+
+  if(editMode && currentZone!==5 && same){
+    await editCell(cell,boardIndex,rowIndex,field);
+  }
+}
+
+function copySlot(){
+  if(!selectedSlot){ alert("먼저 셀을 선택하세요."); return; }
+  const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
+
+  if(selectedSlot.zone===5){
+    clipboardData={type:"db",code:row.code||"",qty:String(toNumber(row.qty))};
+    setStatus("DB 데이터 복사 완료 (코드/재고)","ok");
+    return;
+  }
+
+  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(toNumber(row.qty))}};
+  setStatus("슬롯 복사 완료","ok");
+}
+
+function cutSlot(){
+  if(!selectedSlot){ alert("먼저 셀을 선택하세요."); return; }
+  if(selectedSlot.zone===5){ alert("DB구역에서는 잘라내기를 사용할 수 없습니다."); return; }
+
+  const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
+  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(toNumber(row.qty))}};
+
+  pushUndoSnapshot(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex,row);
+  clearRow(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
+  setStatus("슬롯 잘라내기 완료 (되돌리기 가능)","ok");
+  render();
+}
+
+function pasteSlot(){
+  if(!selectedSlot){ alert("붙여넣을 대상 셀을 먼저 선택하세요."); return; }
+  if(selectedSlot.zone===5){ alert("DB구역에는 붙여넣을 수 없습니다."); return; }
+  if(!clipboardData){ alert("클립보드가 비어있습니다. 먼저 복사/잘라내기를 하세요."); return; }
+
+  const target=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
+  if(clipboardData.type==="db"){
+    target.code=clipboardData.code||"";
+    target.qty=String(toNumber(clipboardData.qty));
+  }else{
+    target.code=clipboardData.row.code||"";
+    target.name=clipboardData.row.name||"";
+    target.spec=clipboardData.row.spec||"";
+    target.qty=String(toNumber(clipboardData.row.qty));
+  }
+
+  markDirty(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
+  setStatus("붙여넣기 완료","ok");
+  render();
+}
+
+function setDeleteMode(active){
+  deleteModeActive=!!active;
+  const btn=document.getElementById("clearBtn");
+  if(btn) btn.classList.toggle("armed",deleteModeActive);
+}
+
+function clearSlotIfZero(){
+  if(currentZone===5){ alert("DB구역에서는 품목삭제를 사용할 수 없습니다."); return; }
+  setDeleteMode(!deleteModeActive);
+  if(deleteModeActive) setStatus("품목삭제 모드: 삭제할 슬롯을 선택하세요.","warn");
+  else setStatus("품목삭제 모드 해제","info");
+}
+
+
+function setEditorNavVisible(visible){
+  const nav=document.getElementById("editorNav");
+  if(!nav) return;
+  nav.style.display=visible?"flex":"none";
+  nav.setAttribute("aria-hidden", visible?"false":"true");
+}
+
+async function finishActiveEditor(){
+  editorCommitQueue=editorCommitQueue.then(async ()=>{
+    const snapshot=activeEditor;
+    if(!snapshot) return;
+    if(snapshot.committing) return snapshot.commitPromise;
+
+    snapshot.committing=true;
+    snapshot.commitPromise=(async ()=>{
+      const {boardIndex,rowIndex,field,oldValue,input,cell}=snapshot;
+      const ok=await processChange(boardIndex,rowIndex,field,oldValue,input.value.trim());
+      cell.classList.remove("editing-cell");
+      cell.textContent=ok?data[currentZone][boardIndex][rowIndex][field]:oldValue;
+      if(activeEditor===snapshot) activeEditor=null;
+      setEditorNavVisible(false);
+    })();
+
+    return snapshot.commitPromise;
+  });
+
+  return editorCommitQueue;
+}
+
+function getFieldListForZone(zone){
+  return zone===5?["code","name","qty"]:["code","name","spec","qty"];
+}
+
+function getCellByLocation(boardIndex,rowIndex,field){
+  const fields=getFieldListForZone(currentZone);
+  const fieldIdx=fields.indexOf(field);
+  if(fieldIdx===-1) return null;
+  const boardEl=document.querySelector(`.board[data-board-index="${boardIndex}"]`);
+  if(!boardEl) return null;
+  const rowEl=boardEl.querySelectorAll("tbody tr")[rowIndex];
+  if(!rowEl) return null;
+  return rowEl.querySelectorAll("td")[fieldIdx] || null;
+}
+
+async function moveEditor(delta){
+  if(!activeEditor) return;
+  const fields=getFieldListForZone(currentZone);
+  let {boardIndex,rowIndex,field}=activeEditor;
+  let idx=fields.indexOf(field);
+  await finishActiveEditor();
+
+  idx+=delta;
+  while(idx<0){
+    if(rowIndex===0) { idx=0; break; }
+    rowIndex-=1;
+    idx=fields.length-1;
+  }
+  while(idx>=fields.length){
+    if(rowIndex>=slotsPerBoard-1) { idx=fields.length-1; break; }
+    rowIndex+=1;
+    idx=0;
+  }
+
+  const nextField=fields[idx];
+  const nextCell=getCellByLocation(boardIndex,rowIndex,nextField);
+  if(nextCell) await editCell(nextCell,boardIndex,rowIndex,nextField);
+}
+
+async function editCell(cell,boardIndex,rowIndex,field){
   if(cell.querySelector("input")) return;
+  if(activeEditor && activeEditor.cell!==cell){
+    await finishActiveEditor();
+  }
 
   const oldValue=data[currentZone][boardIndex][rowIndex][field];
-
   const input=document.createElement("input");
-  input.value=oldValue;
-  input.className="inline-edit";
+  input.value=oldValue; input.className="inline-edit";
+  cell.classList.add("editing-cell");
+  cell.textContent=""; cell.appendChild(input); input.focus();
+  activeEditor={cell,input,boardIndex,rowIndex,field,oldValue,committing:false};
+  setEditorNavVisible(editMode && currentZone!==5);
+  try{ cell.scrollIntoView({block:"center",inline:"nearest",behavior:"smooth"}); }catch(_){}
 
-  cell.textContent="";
-  cell.appendChild(input);
-  input.focus();
-
-  input.onblur=()=>{
-    const newValue=input.value;
-    processChange(boardIndex,rowIndex,field,oldValue,newValue);
-    cell.textContent=newValue;
-  };
+  input.onblur=()=>{ finishActiveEditor(); };
 }
 
 async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
   const row=data[currentZone][boardIndex][rowIndex];
-
   if(field==="qty"){
-    if(!row.code){
-      alert("코드를 먼저 입력하세요");
-      return;
-    }
-
-    const diff=parseInt(newValue||0)-parseInt(oldValue||0);
-
+    if(!row.code){ alert("코드를 먼저 입력하세요"); return false; }
+    const diff=toNumber(newValue)-toNumber(oldValue);
     if(diff!==0){
-      const type=diff>0?"IN":"OUT";
-      await fetch(SCRIPT_URL,{
-        method:"POST",
-        body:JSON.stringify({
-          action:"logUsage",
-          zone:currentZone,
-          board:boardIndex+1,
-          code:row.code,
-          type:type,
-          qty:Math.abs(diff)
-        })
+      pendingLogs.push({
+        zone:currentZone,
+        board:boardIndex+1,
+        code:row.code,
+        type:diff>0?"IN":"OUT",
+        qty:Math.abs(diff)
       });
     }
   }
+  row[field]=field==="qty"?String(toNumber(newValue)):newValue;
+  markDirty(currentZone,boardIndex,rowIndex);
+  return true;
+}
 
-  row[field]=newValue;
-  dirtyMap[`${currentZone}-${boardIndex}-${rowIndex}`]=true;
+
+function setSavingState(saving){
+  isSaving=!!saving;
+  const editBtn=document.getElementById("editBtn");
+  if(!editBtn) return;
+  editBtn.classList.toggle("saving",isSaving);
+  if(isSaving){
+    editBtn.innerHTML='<span class="btn-icon">…</span>저장중';
+  }else{
+    editBtn.innerHTML=editMode?'<span class="btn-icon">✓</span>완료':'<span class="btn-icon">✎</span>편집';
+  }
 }
 
 async function saveAll(){
-  const keys=Object.keys(dirtyMap);
-  for(const key of keys){
-    const [z,b,s]=key.split("-");
-    const row=data[z][b][s];
+  setSavingState(true);
+  try{
+    const keys=Object.keys(dirtyMap);
+    if(!keys.length && !pendingLogs.length) return;
 
-    await fetch(SCRIPT_URL,{
-      method:"POST",
-      body:JSON.stringify({
-        action:"updateSlot",
+    const items=[];
+    for(const key of keys){
+      const [z,b,s]=key.split("-");
+      if(Number(z)===5) continue;
+      const row=data[z][b][s];
+      items.push({
         zone:Number(z),
         board:Number(b)+1,
         slot_no:Number(s)+1,
@@ -187,28 +749,214 @@ async function saveAll(){
         name:row.name,
         spec:row.spec,
         qty:row.qty
-      })
-    });
+      });
+    }
+
+    try{
+      const text=await apiPost({action:"bulkSave",items,logs:pendingLogs});
+
+      if(text==="NO_ACTION") throw new Error("BULK_NO_ACTION");
+
+      const json=JSON.parse(text);
+      if(json.status!=="OK") throw new Error("BULK_BAD_STATUS");
+
+      dirtyMap={};
+      pendingLogs=[];
+      redoStack=[];
+      dbZoneLoaded=false;
+      setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0})`,"ok");
+      return;
+    }catch(err){
+      console.warn("bulkSave 실패, 개별 저장 fallback:",err);
+    }
+
+    // fallback: 기존 개별 저장 + 개별 로그
+    const failed=[];
+
+    for(const key of keys){
+      const [z,b,s]=key.split("-");
+      if(Number(z)===5) continue;
+      const row=data[z][b][s];
+      const text=await apiPost({action:"updateSlot",zone:Number(z),board:Number(b)+1,slot_no:Number(s)+1,code:row.code,name:row.name,spec:row.spec,qty:row.qty});
+      if(text!=="UPDATED"&&text!=="CREATED") failed.push(`${key}:${text}`);
+    }
+
+    for(const log of pendingLogs){
+      const text=await apiPost({action:"logUsage",zone:log.zone,board:log.board,code:log.code,type:log.type,qty:log.qty});
+      if(text!=="LOGGED") failed.push(`LOG:${log.code}:${text}`);
+    }
+
+    if(failed.length){
+      if(failed.some(x=>x.endsWith(':NOT_FOUND'))){
+        setStatus("저장 실패: 서버가 해당 현황판 슬롯 행을 찾지 못했습니다. Apps Script를 최신 코드로 재배포하세요.","error");
+      }else{
+        setStatus(`저장 실패 ${failed.length}건: ${failed[0]}`,"error");
+      }
+      return;
+    }
+
+    dirtyMap={};
+    pendingLogs=[];
+    dbZoneLoaded=false;
+    setStatus("저장 완료","ok");
+  }finally{
+    setSavingState(false);
   }
-  dirtyMap={};
+}
+
+async function addBoard(){
+  const boardNo=data[currentZone].length+1;
+  const text=await apiPost({action:"createBoard",zone:currentZone,board:boardNo});
+  if(text!=="BOARD_CREATED"){
+    if(text==="NO_ACTION"){
+      setStatus("현황판 추가 실패: 서버 배포가 구버전입니다. Apps Script 재배포 후 다시 시도하세요.","error");
+      return;
+    }
+    setStatus(`현황판 추가 실패: ${text}`,"error");
+    return;
+  }
+  ensureBoard(currentZone,boardNo-1);
+  setStatus(`현황판 ${boardNo} 추가 완료`,"ok");
+  render();
+  goToBoard(boardNo-1);
+}
+
+async function deleteCurrentBoard(){
+  if(data[currentZone].length<=1){ alert("현황판은 최소 1개가 필요합니다."); return; }
+  const boardNo=currentBoardIndex+1;
+  if(!confirm(`${currentZone}구역의 ${boardNo}번 현황판을 삭제할까요?`)) return;
+  const text=await apiPost({action:"deleteBoard",zone:currentZone,board:boardNo});
+  if(text!=="BOARD_DELETED"){
+    if(text==="NO_ACTION") setStatus("현황판 삭제는 현재 서버 배포에서 미지원입니다. Apps Script 재배포 후 사용하세요.","warn");
+    else setStatus(`현황판 삭제 실패: ${text}`,"error");
+    return;
+  }
+  data[currentZone].splice(currentBoardIndex,1);
+  setStatus(`현황판 ${boardNo} 삭제 완료`,"ok");
+  render();
 }
 
 document.getElementById("editBtn").onclick=async ()=>{
+  if(isSaving) return;
   editMode=!editMode;
-  document.getElementById("editBtn").textContent=editMode?"완료":"편집";
-  if(!editMode) await saveAll();
+  hideCellPreview();
+  if(!editMode || currentZone===5) setEditorNavVisible(false);
+  const editBtn=document.getElementById("editBtn");
+  editBtn.innerHTML=editMode?'<span class="btn-icon">✓</span>완료':'<span class="btn-icon">✎</span>편집';
+  editBtn.classList.toggle("done-state",editMode);
+  if(!editMode){
+    setDeleteMode(false);
+    setEditorNavVisible(false);
+    await saveAll();
+  }
   render();
 };
 
+document.getElementById("addBoardBtn").onclick=addBoard;
+document.getElementById("deleteBoardBtn").onclick=deleteCurrentBoard;
+document.getElementById("copyBtn").onclick=copySlot;
+document.getElementById("cutBtn").onclick=cutSlot;
+document.getElementById("pasteBtn").onclick=pasteSlot;
+document.getElementById("clearBtn").onclick=clearSlotIfZero;
+document.getElementById("undoBtn").onclick=undoDelete;
+document.getElementById("redoBtn").onclick=redoDelete;
+const editorPrevBtn=document.getElementById("editorPrevBtn");
+const editorNextBtn=document.getElementById("editorNextBtn");
+const editorDoneBtn=document.getElementById("editorDoneBtn");
+
+[editorPrevBtn,editorNextBtn].forEach(btn=>{
+  btn.onmousedown=(e)=>e.preventDefault();
+});
+
+editorPrevBtn.onclick=()=>moveEditor(-1);
+editorNextBtn.onclick=()=>moveEditor(1);
+editorDoneBtn.onclick=()=>finishActiveEditor();
+document.getElementById("refreshDbBtn").onclick=async ()=>{
+  setStatus("DB재고 강제 새로고침 중...","info");
+  await loadDbZoneData(true);
+  if(currentZone===5) render();
+};
+document.getElementById("searchInput").addEventListener("input",(e)=>{
+  searchKeyword=String(e.target.value||"").trim().toLowerCase();
+  render();
+});
+
+document.getElementById("boardDots").onclick=(e)=>{
+  const total=data[currentZone].length;
+  if(total<=1) return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const ratio=(e.clientX-rect.left)/Math.max(rect.width,1);
+  const idx=Math.max(0,Math.min(total-1,Math.floor(ratio*total)));
+  goToBoard(idx);
+};
+
+document.getElementById("boardWrapper").addEventListener("scroll",()=>{
+  const wrapper=document.getElementById("boardWrapper");
+  const index=Math.round(wrapper.scrollLeft/Math.max(wrapper.clientWidth,1));
+  if(index!==currentBoardIndex){ currentBoardIndex=index; updateBoardIndicator(); }
+});
+
 document.querySelectorAll(".zone-btn").forEach(btn=>{
-  btn.onclick=()=>{
+  btn.onclick=async ()=>{
     document.querySelectorAll(".zone-btn").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     currentZone=Number(btn.dataset.zone);
+    currentBoardIndex=0;
+    setEditorNavVisible(false);
+    setDeleteMode(false);
+    activeEditor=null;
+    if(currentZone!==5) updateDbFreshnessLabel();
+
+    if(currentZone===5 && !dbZoneLoaded){
+      setStatus("DB재고 불러오는 중...","info");
+      await loadDbZoneData();
+    }
+
     render();
+    goToBoard(0,false);
+    if(currentZone===5 && dbZoneLoadError) setStatus(dbZoneLoadError,"warn");
+    else if(currentZone===5) setStatus("");
   };
 });
 
+
+function setupPwaInstall(){
+  const btn=document.getElementById("installBtn");
+  if(!btn) return;
+
+  window.addEventListener("beforeinstallprompt",(e)=>{
+    e.preventDefault();
+    deferredInstallPrompt=e;
+    btn.style.display="inline-block";
+  });
+
+  btn.onclick=async ()=>{
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try{ await deferredInstallPrompt.userChoice; }catch(_){ }
+    deferredInstallPrompt=null;
+    btn.style.display="none";
+  };
+
+  window.addEventListener("appinstalled",()=>{
+    deferredInstallPrompt=null;
+    btn.style.display="none";
+    setStatus("앱 설치 완료","ok");
+  });
+}
+
+function registerServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('service-worker.js').catch((err)=>{
+      console.warn('SW 등록 실패:',err);
+    });
+  });
+}
+
+document.addEventListener("click",hideCellPreview);
+setupPwaInstall();
+registerServiceWorker();
 loadData();
 </script>
 </body>
