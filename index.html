@@ -13,7 +13,7 @@
 body{margin:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#334155;}
 .app{width:100%;min-height:100vh;background:linear-gradient(180deg,#fcfdff 0%,#f7f9fc 100%);display:flex;flex-direction:column;}
 .top-bar{background:rgba(255,255,255,.92);backdrop-filter:blur(6px);padding:12px;display:flex;flex-direction:column;gap:10px;align-items:stretch;border-bottom:1px solid #e5ebf3;box-shadow:0 8px 24px rgba(148,163,184,.18);}
-.zone-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 8px 20px rgba(148,163,184,.12);}
+.zone-tabs{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:8px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 8px 20px rgba(148,163,184,.12);}
 .zone-btn{font-size:15px;color:#334155;padding:7px 12px;border-radius:10px;border:1px solid #e2e8f0;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(148,163,184,.18);}
 .zone-btn.active{font-weight:700;color:#0f172a;background:linear-gradient(180deg,#ffffff 0%,#eef4ff 100%);border-color:#cbdaf8;box-shadow:0 6px 16px rgba(59,130,246,.2);}
 .zone-divider{color:#c0cddd;font-size:14px;user-select:none;}
@@ -21,7 +21,6 @@ body{margin:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,sa
 .control-btn{color:#1e293b;padding:7px 12px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(148,163,184,.16);font-size:14px;font-weight:600;}
 .control-btn.board-action,.control-btn.clip-action,.control-btn.primary-action{background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);border-color:#dbe4ef;}
 .control-btn.board-action{padding:4px 8px;font-size:12px;opacity:.82;}
-#addBoardBtn{margin-left:auto;}
 #deleteBoardBtn{border-color:#fecaca;color:#b91c1c;background:linear-gradient(180deg,#fff 0%,#fff5f5 100%);} #deleteBoardBtn .btn-icon{color:#b91c1c;}
 .control-btn.primary-action.done-state{background:linear-gradient(180deg,#ffffff 0%,#ecfdf3 100%);border-color:#86efac;color:#166534;}
 .btn-icon{width:18px;height:18px;border-radius:6px;background:linear-gradient(180deg,#f8fbff 0%,#e8eff8 100%);border:1px solid #d6dfeb;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#475569;box-shadow:inset 0 1px 0 rgba(255,255,255,.9);}
@@ -46,24 +45,20 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 <div class="top-bar">
   <div class="zone-tabs">
     <button class="zone-btn active" data-zone="1"><span class="btn-icon">①</span>1구역</button>
-    <span class="zone-divider">/</span>
     <button class="zone-btn" data-zone="2"><span class="btn-icon">②</span>2구역</button>
-    <span class="zone-divider">/</span>
     <button class="zone-btn" data-zone="3"><span class="btn-icon">③</span>3구역</button>
-    <span class="zone-divider">/</span>
     <button class="zone-btn" data-zone="4"><span class="btn-icon">④</span>4구역</button>
-    <span class="zone-divider">/</span>
     <button class="zone-btn" data-zone="5"><span class="btn-icon">DB</span>DB재고</button>
   </div>
   <div class="control-row">
+    <button id="addBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">＋</span>현황판 추가</button>
+    <button id="deleteBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">－</span>현황판 삭제</button>
     <button id="copyBtn" class="control-btn clip-action edit-only db-only" style="display:none;"><span class="btn-icon">⧉</span>복사</button>
     <button id="cutBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">✂</span>잘라내기</button>
     <button id="pasteBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">📋</span>붙여넣기</button>
     <button id="clearBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">⌫</span>슬롯 비우기</button>
     <button id="editBtn" class="control-btn primary-action"><span class="btn-icon">✎</span>편집</button>
     <button id="installBtn" class="control-btn" style="display:none;"><span class="btn-icon">⬇</span>앱 설치</button>
-    <button id="addBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">＋</span>현황판 추가</button>
-    <button id="deleteBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">－</span>현황판 삭제</button>
   </div>
 </div>
 
@@ -76,7 +71,7 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw4CDDK-_c_xg44HyYoOHUG2C_E5KHcENQjJZpJbXlSKHyvFA3rcojIGq2fpNZrqXLK/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbwsa7z64OmnoqbQFoKfUi1AUGtX0Fk5XGTx8NVe6qCCaZ80lRFYeCIM3_nR26LPw3bP/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -206,7 +201,7 @@ function render(){
         const td=document.createElement("td");
         td.textContent=row[field];
         td.title=String(row[field]||"");
-        if(field==="qty") td.style.fontWeight="700";
+        if(field==="qty"){ td.style.fontWeight="700"; td.style.fontSize="18px"; }
         if(currentZone===5 && field==="qty") {
           if(row.mismatchType==="dbOnly") td.style.color="#c62828";
           else if(row.mismatchType==="boardOnly") td.style.color="#1565c0";
@@ -332,7 +327,12 @@ async function loadDbZoneData(forceRefresh=false){
       });
     });
 
-    mismatchRows.sort((a,b)=>a.code.localeCompare(b.code,'ko'));
+    mismatchRows.sort((a,b)=>{
+      const rank=(row)=>row.mismatchType==='dbOnly'?0:1;
+      const byType=rank(a)-rank(b);
+      if(byType!==0) return byType;
+      return a.code.localeCompare(b.code,'ko');
+    });
 
     if(!mismatchRows.length){
       dbZoneLoaded=true;
