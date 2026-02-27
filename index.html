@@ -860,9 +860,17 @@ document.getElementById("pasteBtn").onclick=pasteSlot;
 document.getElementById("clearBtn").onclick=clearSlotIfZero;
 document.getElementById("undoBtn").onclick=undoDelete;
 document.getElementById("redoBtn").onclick=redoDelete;
-document.getElementById("editorPrevBtn").onclick=()=>moveEditor(-1);
-document.getElementById("editorNextBtn").onclick=()=>moveEditor(1);
-document.getElementById("editorDoneBtn").onclick=()=>finishActiveEditor();
+const editorPrevBtn=document.getElementById("editorPrevBtn");
+const editorNextBtn=document.getElementById("editorNextBtn");
+const editorDoneBtn=document.getElementById("editorDoneBtn");
+
+[editorPrevBtn,editorNextBtn].forEach(btn=>{
+  btn.onmousedown=(e)=>e.preventDefault();
+});
+
+editorPrevBtn.onclick=()=>moveEditor(-1);
+editorNextBtn.onclick=()=>moveEditor(1);
+editorDoneBtn.onclick=()=>finishActiveEditor();
 document.getElementById("refreshDbBtn").onclick=async ()=>{
   setStatus("DB재고 강제 새로고침 중...","info");
   await loadDbZoneData(true);
@@ -905,6 +913,7 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
     }
 
     render();
+    goToBoard(0,false);
     if(currentZone===5 && dbZoneLoadError) setStatus(dbZoneLoadError,"warn");
     else if(currentZone===5) setStatus("");
   };
