@@ -43,6 +43,10 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
   .zone-btn .btn-icon{width:14px;height:14px;font-size:9px;}
 }
 
+
+.editor-nav{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:12000;display:none;gap:8px;justify-content:flex-end;padding:8px;background:rgba(255,255,255,.95);border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 8px 22px rgba(15,23,42,.15);backdrop-filter:blur(6px);}
+.editor-nav button{border:1px solid #cfd8e6;background:#fff;border-radius:10px;padding:7px 12px;font-weight:700;color:#334155;min-width:42px;}
+.editor-nav button.done{border-color:#86efac;color:#166534;background:#f0fdf4;}
 </style>
 </head>
 <body>
@@ -75,6 +79,11 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
   <div id="boardDots" style="display:inline-block;color:#64748b;font-size:18px;letter-spacing:2px;">●</div>
 </div>
 <div id="cellPreview" class="cell-preview"></div>
+<div id="editorNav" class="editor-nav" aria-hidden="true">
+  <button id="editorPrevBtn" type="button" aria-label="이전 셀">&lt;</button>
+  <button id="editorNextBtn" type="button" aria-label="다음 셀">&gt;</button>
+  <button id="editorDoneBtn" type="button" class="done" aria-label="완료">✓</button>
+</div>
 </div>
 
 <script>
@@ -93,6 +102,7 @@ let dbZoneLoaded=false;
 let dbZoneLoading=false;
 let deleteModeActive=false;
 let undoStack=[];
+let activeEditor=null;
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -188,6 +198,7 @@ function render(){
   wrapper.innerHTML="";
   selectedSlot=null;
   hideCellPreview();
+  if(!editMode || currentZone===5) setEditorNavVisible(false);
 
   data[currentZone].forEach((board,boardIndex)=>{
     const boardDiv=document.createElement("div");
@@ -432,6 +443,7 @@ function handleSlotTap(event,cell,boardIndex,rowIndex,field){
   if(!editMode){
     selectedSlot=null;
     hideCellPreview();
+  if(!editMode || currentZone===5) setEditorNavVisible(false);
     const row=data[currentZone][boardIndex][rowIndex];
     if(field==="name" || field==="spec") showCellPreview(row[field],cell);
     return;
@@ -506,18 +518,79 @@ function clearSlotIfZero(){
   else setStatus("품목삭제 모드 해제","info");
 }
 
+
+function setEditorNavVisible(visible){
+  const nav=document.getElementById("editorNav");
+  if(!nav) return;
+  nav.style.display=visible?"flex":"none";
+  nav.setAttribute("aria-hidden", visible?"false":"true");
+}
+
+async function finishActiveEditor(){
+  if(!activeEditor || activeEditor.committing) return;
+  activeEditor.committing=true;
+  const {boardIndex,rowIndex,field,oldValue,input,cell}=activeEditor;
+  const ok=await processChange(boardIndex,rowIndex,field,oldValue,input.value.trim());
+  cell.classList.remove("editing-cell");
+  cell.textContent=ok?data[currentZone][boardIndex][rowIndex][field]:oldValue;
+  activeEditor=null;
+  setEditorNavVisible(false);
+}
+
+function getFieldListForZone(zone){
+  return zone===5?["code","name","qty"]:["code","name","spec","qty"];
+}
+
+function getCellByLocation(boardIndex,rowIndex,field){
+  const fields=getFieldListForZone(currentZone);
+  const fieldIdx=fields.indexOf(field);
+  if(fieldIdx===-1) return null;
+  const boardEl=document.querySelector(`.board[data-board-index="${boardIndex}"]`);
+  if(!boardEl) return null;
+  const rowEl=boardEl.querySelectorAll("tbody tr")[rowIndex];
+  if(!rowEl) return null;
+  return rowEl.querySelectorAll("td")[fieldIdx] || null;
+}
+
+async function moveEditor(delta){
+  if(!activeEditor) return;
+  const fields=getFieldListForZone(currentZone);
+  let {boardIndex,rowIndex,field}=activeEditor;
+  let idx=fields.indexOf(field);
+  await finishActiveEditor();
+
+  idx+=delta;
+  while(idx<0){
+    if(rowIndex===0) { idx=0; break; }
+    rowIndex-=1;
+    idx=fields.length-1;
+  }
+  while(idx>=fields.length){
+    if(rowIndex>=slotsPerBoard-1) { idx=fields.length-1; break; }
+    rowIndex+=1;
+    idx=0;
+  }
+
+  const nextField=fields[idx];
+  const nextCell=getCellByLocation(boardIndex,rowIndex,nextField);
+  if(nextCell) editCell(nextCell,boardIndex,rowIndex,nextField);
+}
+
 function editCell(cell,boardIndex,rowIndex,field){
   if(cell.querySelector("input")) return;
+  if(activeEditor && activeEditor.cell!==cell){
+    finishActiveEditor();
+  }
+
   const oldValue=data[currentZone][boardIndex][rowIndex][field];
   const input=document.createElement("input");
   input.value=oldValue; input.className="inline-edit";
   cell.classList.add("editing-cell");
   cell.textContent=""; cell.appendChild(input); input.focus();
-  input.onblur=async ()=>{
-    const ok=await processChange(boardIndex,rowIndex,field,oldValue,input.value.trim());
-    cell.classList.remove("editing-cell");
-    cell.textContent=ok?data[currentZone][boardIndex][rowIndex][field]:oldValue;
-  };
+  activeEditor={cell,input,boardIndex,rowIndex,field,oldValue,committing:false};
+  setEditorNavVisible(editMode && currentZone!==5);
+
+  input.onblur=()=>{ finishActiveEditor(); };
 }
 
 async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
@@ -648,11 +721,13 @@ async function deleteCurrentBoard(){
 document.getElementById("editBtn").onclick=async ()=>{
   editMode=!editMode;
   hideCellPreview();
+  if(!editMode || currentZone===5) setEditorNavVisible(false);
   const editBtn=document.getElementById("editBtn");
   editBtn.innerHTML=editMode?'<span class="btn-icon">✓</span>완료':'<span class="btn-icon">✎</span>편집';
   editBtn.classList.toggle("done-state",editMode);
   if(!editMode){
     deleteModeActive=false;
+    setEditorNavVisible(false);
     await saveAll();
   }
   render();
@@ -665,6 +740,9 @@ document.getElementById("cutBtn").onclick=cutSlot;
 document.getElementById("pasteBtn").onclick=pasteSlot;
 document.getElementById("clearBtn").onclick=clearSlotIfZero;
 document.getElementById("undoBtn").onclick=undoDelete;
+document.getElementById("editorPrevBtn").onclick=()=>moveEditor(-1);
+document.getElementById("editorNextBtn").onclick=()=>moveEditor(1);
+document.getElementById("editorDoneBtn").onclick=()=>finishActiveEditor();
 
 document.getElementById("boardDots").onclick=(e)=>{
   const total=data[currentZone].length;
@@ -687,6 +765,8 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
     btn.classList.add("active");
     currentZone=Number(btn.dataset.zone);
     currentBoardIndex=0;
+    setEditorNavVisible(false);
+    activeEditor=null;
 
     if(currentZone===5 && !dbZoneLoaded){
       setStatus("DB재고 불러오는 중...","info");
