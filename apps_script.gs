@@ -61,36 +61,59 @@ function doPost(e) {
   return ContentService.createTextOutput('NO_ACTION');
 }
 
+
+function getSlotRowIndexMap(slotSheet) {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('slot_row_index_v1');
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (err) {
+      // ignore cache parse errors and rebuild below
+    }
+  }
+
+  const slotData = slotSheet.getDataRange().getValues();
+  const rowByKey = {};
+  for (let i = 1; i < slotData.length; i++) {
+    const key = [String(slotData[i][0]), String(slotData[i][1]), String(slotData[i][2])].join('-');
+    rowByKey[key] = i + 1;
+  }
+
+  cache.put('slot_row_index_v1', JSON.stringify(rowByKey), 20);
+  return rowByKey;
+}
+
 // ============================
 // SLOTS 업데이트 (없으면 생성)
 // ============================
 function updateSlot(payload) {
   const sheet = SpreadsheetApp.getActive().getSheetByName('SLOTS');
-  const data = sheet.getDataRange().getValues();
 
-  const zone = String(payload.zone);
-  const board = String(payload.board);
-  const slot = String(payload.slot_no);
+  const zone = Number(payload.zone) || 0;
+  const board = Number(payload.board) || 0;
+  const slot = Number(payload.slot_no) || 0;
+  if (!zone || !board || !slot) return ContentService.createTextOutput('INVALID_SLOT');
 
-  for (let i = 1; i < data.length; i++) {
-    if (
-      String(data[i][0]) === zone &&
-      String(data[i][1]) === board &&
-      String(data[i][2]) === slot
-    ) {
-      sheet.getRange(i + 1, 4).setValue(payload.code || '');
-      sheet.getRange(i + 1, 5).setValue(payload.name || '');
-      sheet.getRange(i + 1, 6).setValue(payload.spec || '');
-      sheet.getRange(i + 1, 7).setValue(Number(payload.qty) || 0);
-      invalidateRuntimeCaches();
-      return ContentService.createTextOutput('UPDATED');
-    }
+  const key = [String(zone), String(board), String(slot)].join('-');
+  const rowByKey = getSlotRowIndexMap(sheet);
+  const rowNo = rowByKey[key];
+
+  if (rowNo) {
+    sheet.getRange(rowNo, 4, 1, 4).setValues([[
+      payload.code || '',
+      payload.name || '',
+      payload.spec || '',
+      Number(payload.qty) || 0
+    ]]);
+    invalidateRuntimeCaches();
+    return ContentService.createTextOutput('UPDATED');
   }
 
   sheet.appendRow([
-    Number(payload.zone) || 0,
-    Number(payload.board) || 0,
-    Number(payload.slot_no) || 0,
+    zone,
+    board,
+    slot,
     payload.code || '',
     payload.name || '',
     payload.spec || '',
@@ -269,13 +292,7 @@ function bulkSave(payload) {
   const logs = Array.isArray(payload && payload.logs) ? payload.logs : [];
 
   const slotSheet = SpreadsheetApp.getActive().getSheetByName('SLOTS');
-  const slotData = slotSheet.getDataRange().getValues();
-
-  const rowByKey = {};
-  for (let i = 1; i < slotData.length; i++) {
-    const key = [String(slotData[i][0]), String(slotData[i][1]), String(slotData[i][2])].join('-');
-    rowByKey[key] = i + 1;
-  }
+  const rowByKey = getSlotRowIndexMap(slotSheet);
 
   let updated = 0;
   let created = 0;
@@ -348,5 +365,5 @@ function bulkSave(payload) {
 
 function invalidateRuntimeCaches() {
   const cache = CacheService.getScriptCache();
-  cache.removeAll(['slots_v1', 'db_diff_v1']);
+  cache.removeAll(['slots_v1', 'db_diff_v1', 'slot_row_index_v1']);
 }

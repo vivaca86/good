@@ -23,6 +23,7 @@ body{margin:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,sa
 .control-btn.board-action{padding:4px 8px;font-size:12px;opacity:.82;}
 #deleteBoardBtn{border-color:#fecaca;color:#b91c1c;background:linear-gradient(180deg,#fff 0%,#fff5f5 100%);} #deleteBoardBtn .btn-icon{color:#b91c1c;}
 .control-btn.primary-action.done-state{background:linear-gradient(180deg,#ffffff 0%,#ecfdf3 100%);border-color:#86efac;color:#166534;}
+.control-btn.armed{border-color:#f59e0b;background:linear-gradient(180deg,#fff7ed 0%,#ffedd5 100%);color:#9a3412;}
 .btn-icon{width:18px;height:18px;border-radius:6px;background:linear-gradient(180deg,#f8fbff 0%,#e8eff8 100%);border:1px solid #d6dfeb;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#475569;box-shadow:inset 0 1px 0 rgba(255,255,255,.9);}
 .board-wrapper{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .board{min-width:100%;scroll-snap-align:start;}
@@ -87,7 +88,7 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw4CDDK-_c_xg44HyYoOHUG2C_E5KHcENQjJZpJbXlSKHyvFA3rcojIGq2fpNZrqXLK/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbwsa7z64OmnoqbQFoKfUi1AUGtX0Fk5XGTx8NVe6qCCaZ80lRFYeCIM3_nR26LPw3bP/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -103,6 +104,7 @@ let dbZoneLoading=false;
 let deleteModeActive=false;
 let undoStack=[];
 let activeEditor=null;
+let editorCommitQueue=Promise.resolve();
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -428,7 +430,7 @@ function undoDelete(){
   render();
 }
 
-function handleSlotTap(event,cell,boardIndex,rowIndex,field){
+async function handleSlotTap(event,cell,boardIndex,rowIndex,field){
   if(event) event.stopPropagation();
   const same=selectedSlot &&
     selectedSlot.zone===currentZone &&
@@ -443,7 +445,7 @@ function handleSlotTap(event,cell,boardIndex,rowIndex,field){
   if(!editMode){
     selectedSlot=null;
     hideCellPreview();
-  if(!editMode || currentZone===5) setEditorNavVisible(false);
+    setEditorNavVisible(false);
     const row=data[currentZone][boardIndex][rowIndex];
     if(field==="name" || field==="spec") showCellPreview(row[field],cell);
     return;
@@ -459,7 +461,7 @@ function handleSlotTap(event,cell,boardIndex,rowIndex,field){
   }
 
   if(editMode && currentZone!==5 && same){
-    editCell(cell,boardIndex,rowIndex,field);
+    await editCell(cell,boardIndex,rowIndex,field);
   }
 }
 
@@ -511,9 +513,15 @@ function pasteSlot(){
   render();
 }
 
+function setDeleteMode(active){
+  deleteModeActive=!!active;
+  const btn=document.getElementById("clearBtn");
+  if(btn) btn.classList.toggle("armed",deleteModeActive);
+}
+
 function clearSlotIfZero(){
   if(currentZone===5){ alert("DB구역에서는 품목삭제를 사용할 수 없습니다."); return; }
-  deleteModeActive=!deleteModeActive;
+  setDeleteMode(!deleteModeActive);
   if(deleteModeActive) setStatus("품목삭제 모드: 삭제할 슬롯을 선택하세요.","warn");
   else setStatus("품목삭제 모드 해제","info");
 }
@@ -527,14 +535,25 @@ function setEditorNavVisible(visible){
 }
 
 async function finishActiveEditor(){
-  if(!activeEditor || activeEditor.committing) return;
-  activeEditor.committing=true;
-  const {boardIndex,rowIndex,field,oldValue,input,cell}=activeEditor;
-  const ok=await processChange(boardIndex,rowIndex,field,oldValue,input.value.trim());
-  cell.classList.remove("editing-cell");
-  cell.textContent=ok?data[currentZone][boardIndex][rowIndex][field]:oldValue;
-  activeEditor=null;
-  setEditorNavVisible(false);
+  editorCommitQueue=editorCommitQueue.then(async ()=>{
+    const snapshot=activeEditor;
+    if(!snapshot) return;
+    if(snapshot.committing) return snapshot.commitPromise;
+
+    snapshot.committing=true;
+    snapshot.commitPromise=(async ()=>{
+      const {boardIndex,rowIndex,field,oldValue,input,cell}=snapshot;
+      const ok=await processChange(boardIndex,rowIndex,field,oldValue,input.value.trim());
+      cell.classList.remove("editing-cell");
+      cell.textContent=ok?data[currentZone][boardIndex][rowIndex][field]:oldValue;
+      if(activeEditor===snapshot) activeEditor=null;
+      setEditorNavVisible(false);
+    })();
+
+    return snapshot.commitPromise;
+  });
+
+  return editorCommitQueue;
 }
 
 function getFieldListForZone(zone){
@@ -573,13 +592,13 @@ async function moveEditor(delta){
 
   const nextField=fields[idx];
   const nextCell=getCellByLocation(boardIndex,rowIndex,nextField);
-  if(nextCell) editCell(nextCell,boardIndex,rowIndex,nextField);
+  if(nextCell) await editCell(nextCell,boardIndex,rowIndex,nextField);
 }
 
-function editCell(cell,boardIndex,rowIndex,field){
+async function editCell(cell,boardIndex,rowIndex,field){
   if(cell.querySelector("input")) return;
   if(activeEditor && activeEditor.cell!==cell){
-    finishActiveEditor();
+    await finishActiveEditor();
   }
 
   const oldValue=data[currentZone][boardIndex][rowIndex][field];
@@ -726,7 +745,7 @@ document.getElementById("editBtn").onclick=async ()=>{
   editBtn.innerHTML=editMode?'<span class="btn-icon">✓</span>완료':'<span class="btn-icon">✎</span>편집';
   editBtn.classList.toggle("done-state",editMode);
   if(!editMode){
-    deleteModeActive=false;
+    setDeleteMode(false);
     setEditorNavVisible(false);
     await saveAll();
   }
@@ -766,6 +785,7 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
     currentZone=Number(btn.dataset.zone);
     currentBoardIndex=0;
     setEditorNavVisible(false);
+    setDeleteMode(false);
     activeEditor=null;
 
     if(currentZone===5 && !dbZoneLoaded){
