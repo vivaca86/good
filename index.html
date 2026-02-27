@@ -403,8 +403,6 @@ async function loadDbZoneData(forceRefresh=false){
 
     if(!mismatchRows.length){
       dbZoneLoaded=true;
-    dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    updateDbFreshnessLabel();
       dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
       updateDbFreshnessLabel();
       setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
@@ -470,7 +468,6 @@ function performDeleteWithConfirm(zone,boardIndex,rowIndex){
 function undoDelete(){
   if(!undoStack.length){
     alert("되돌릴 삭제 기록이 없습니다.");
-    setSavingState(false);
     return;
   }
   const last=undoStack.pop();
@@ -715,76 +712,77 @@ function setSavingState(saving){
 }
 
 async function saveAll(){
-  const keys=Object.keys(dirtyMap);
   setSavingState(true);
-  if(!keys.length && !pendingLogs.length) return;
-
-  const items=[];
-  for(const key of keys){
-    const [z,b,s]=key.split("-");
-    if(Number(z)===5) continue;
-    const row=data[z][b][s];
-    items.push({
-      zone:Number(z),
-      board:Number(b)+1,
-      slot_no:Number(s)+1,
-      code:row.code,
-      name:row.name,
-      spec:row.spec,
-      qty:row.qty
-    });
-  }
-
   try{
-    const text=await apiPost({action:"bulkSave",items,logs:pendingLogs});
+    const keys=Object.keys(dirtyMap);
+    if(!keys.length && !pendingLogs.length) return;
 
-    if(text==="NO_ACTION") throw new Error("BULK_NO_ACTION");
+    const items=[];
+    for(const key of keys){
+      const [z,b,s]=key.split("-");
+      if(Number(z)===5) continue;
+      const row=data[z][b][s];
+      items.push({
+        zone:Number(z),
+        board:Number(b)+1,
+        slot_no:Number(s)+1,
+        code:row.code,
+        name:row.name,
+        spec:row.spec,
+        qty:row.qty
+      });
+    }
 
-    const json=JSON.parse(text);
-    if(json.status!=="OK") throw new Error("BULK_BAD_STATUS");
+    try{
+      const text=await apiPost({action:"bulkSave",items,logs:pendingLogs});
+
+      if(text==="NO_ACTION") throw new Error("BULK_NO_ACTION");
+
+      const json=JSON.parse(text);
+      if(json.status!=="OK") throw new Error("BULK_BAD_STATUS");
+
+      dirtyMap={};
+      pendingLogs=[];
+      redoStack=[];
+      dbZoneLoaded=false;
+      setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0})`,"ok");
+      return;
+    }catch(err){
+      console.warn("bulkSave 실패, 개별 저장 fallback:",err);
+    }
+
+    // fallback: 기존 개별 저장 + 개별 로그
+    const failed=[];
+
+    for(const key of keys){
+      const [z,b,s]=key.split("-");
+      if(Number(z)===5) continue;
+      const row=data[z][b][s];
+      const text=await apiPost({action:"updateSlot",zone:Number(z),board:Number(b)+1,slot_no:Number(s)+1,code:row.code,name:row.name,spec:row.spec,qty:row.qty});
+      if(text!=="UPDATED"&&text!=="CREATED") failed.push(`${key}:${text}`);
+    }
+
+    for(const log of pendingLogs){
+      const text=await apiPost({action:"logUsage",zone:log.zone,board:log.board,code:log.code,type:log.type,qty:log.qty});
+      if(text!=="LOGGED") failed.push(`LOG:${log.code}:${text}`);
+    }
+
+    if(failed.length){
+      if(failed.some(x=>x.endsWith(':NOT_FOUND'))){
+        setStatus("저장 실패: 서버가 해당 현황판 슬롯 행을 찾지 못했습니다. Apps Script를 최신 코드로 재배포하세요.","error");
+      }else{
+        setStatus(`저장 실패 ${failed.length}건: ${failed[0]}`,"error");
+      }
+      return;
+    }
 
     dirtyMap={};
     pendingLogs=[];
-    redoStack=[];
     dbZoneLoaded=false;
-    setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0})`,"ok");
+    setStatus("저장 완료","ok");
+  }finally{
     setSavingState(false);
-    return;
-  }catch(err){
-    console.warn("bulkSave 실패, 개별 저장 fallback:",err);
   }
-
-  // fallback: 기존 개별 저장 + 개별 로그
-  const failed=[];
-
-  for(const key of keys){
-    const [z,b,s]=key.split("-");
-    if(Number(z)===5) continue;
-    const row=data[z][b][s];
-    const text=await apiPost({action:"updateSlot",zone:Number(z),board:Number(b)+1,slot_no:Number(s)+1,code:row.code,name:row.name,spec:row.spec,qty:row.qty});
-    if(text!=="UPDATED"&&text!=="CREATED") failed.push(`${key}:${text}`);
-  }
-
-  for(const log of pendingLogs){
-    const text=await apiPost({action:"logUsage",zone:log.zone,board:log.board,code:log.code,type:log.type,qty:log.qty});
-    if(text!=="LOGGED") failed.push(`LOG:${log.code}:${text}`);
-  }
-
-  if(failed.length){
-    if(failed.some(x=>x.endsWith(':NOT_FOUND'))){
-      setStatus("저장 실패: 서버가 해당 현황판 슬롯 행을 찾지 못했습니다. Apps Script를 최신 코드로 재배포하세요.","error");
-    }else{
-      setStatus(`저장 실패 ${failed.length}건: ${failed[0]}`,"error");
-    }
-    setSavingState(false);
-    return;
-  }
-
-  dirtyMap={};
-  pendingLogs=[];
-  dbZoneLoaded=false;
-  setStatus("저장 완료","ok");
-  setSavingState(false);
 }
 
 async function addBoard(){
