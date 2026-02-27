@@ -32,7 +32,7 @@ function doGet() {
     });
 
   const json = JSON.stringify(result);
-  cache.put('slots_v1', json, 20);
+  cache.put('slots_v1', json, 15);
 
   return ContentService
     .createTextOutput(json)
@@ -57,6 +57,7 @@ function doPost(e) {
   if (payload.action === 'deleteBoard') return deleteBoardRows(payload);
   if (payload.action === 'getDbDiff') return getDbDiffRows(payload);
   if (payload.action === 'bulkSave') return bulkSave(payload);
+  if (payload.action === 'logClientError') return logClientError(payload);
 
   return ContentService.createTextOutput('NO_ACTION');
 }
@@ -80,7 +81,7 @@ function getSlotRowIndexMap(slotSheet) {
     rowByKey[key] = i + 1;
   }
 
-  cache.put('slot_row_index_v1', JSON.stringify(rowByKey), 20);
+  cache.put('slot_row_index_v1', JSON.stringify(rowByKey), 120);
   return rowByKey;
 }
 
@@ -256,7 +257,7 @@ function getDbDiffRows(payload) {
   }
 
   const json = JSON.stringify(rows);
-  cache.put('db_diff_v1', json, 30);
+  cache.put('db_diff_v1', json, 45);
 
   return ContentService
     .createTextOutput(json)
@@ -362,6 +363,23 @@ function bulkSave(payload) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+
+
+function logClientError(payload) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName('APP_ERROR_LOG');
+  if (!sheet) return ContentService.createTextOutput('NO_LOG_SHEET');
+
+  sheet.appendRow([
+    new Date(),
+    String(payload && payload.area || ''),
+    String(payload && payload.message || ''),
+    String(payload && payload.detail || ''),
+    String(payload && payload.ua || '')
+  ]);
+
+  return ContentService.createTextOutput('ERROR_LOGGED');
+}
 
 function invalidateRuntimeCaches() {
   const cache = CacheService.getScriptCache();

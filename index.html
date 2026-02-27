@@ -24,6 +24,8 @@ body{margin:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,sa
 #deleteBoardBtn{border-color:#fecaca;color:#b91c1c;background:linear-gradient(180deg,#fff 0%,#fff5f5 100%);} #deleteBoardBtn .btn-icon{color:#b91c1c;}
 .control-btn.primary-action.done-state{background:linear-gradient(180deg,#ffffff 0%,#ecfdf3 100%);border-color:#86efac;color:#166534;}
 .control-btn.armed{border-color:#f59e0b;background:linear-gradient(180deg,#fff7ed 0%,#ffedd5 100%);color:#9a3412;}
+#redoBtn{display:none;}
+.db-freshness{font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:4px 8px;align-self:flex-start;}
 .btn-icon{width:18px;height:18px;border-radius:6px;background:linear-gradient(180deg,#f8fbff 0%,#e8eff8 100%);border:1px solid #d6dfeb;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#475569;box-shadow:inset 0 1px 0 rgba(255,255,255,.9);}
 .board-wrapper{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .board{min-width:100%;scroll-snap-align:start;}
@@ -66,12 +68,14 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
     <button id="deleteBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">－</span>현황판 삭제</button>
     <button id="clearBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="품목삭제 모드"><span class="btn-icon">⌫</span>품목삭제</button>
     <button id="undoBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="마지막 삭제/잘라내기 되돌리기"><span class="btn-icon">↶</span>되돌리기</button>
+    <button id="redoBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="되돌리기 취소"><span class="btn-icon">↷</span>다시실행</button>
     <button id="cutBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">✂</span>잘라내기</button>
     <button id="pasteBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">📋</span>붙여넣기</button>
     <button id="copyBtn" class="control-btn clip-action edit-only db-only" style="display:none;"><span class="btn-icon">⧉</span>복사</button>
     <button id="editBtn" class="control-btn primary-action"><span class="btn-icon">✎</span>편집</button>
     <button id="installBtn" class="control-btn" style="display:none;"><span class="btn-icon">⬇</span>앱 설치</button>
   </div>
+  <div id="dbFreshness" class="db-freshness" style="display:none;">DB 갱신시각: -</div>
 </div>
 
 <div id="statusBar" style="display:none;padding:10px 12px;font-size:14px;"></div>
@@ -88,7 +92,7 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbwsa7z64OmnoqbQFoKfUi1AUGtX0Fk5XGTx8NVe6qCCaZ80lRFYeCIM3_nR26LPw3bP/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxF07PRUFrHVcUXKdKn3-9EdWQSD734SGI_6fdDqfJNwH7UdXXLTtJjz213B4YCYAIG/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -103,8 +107,10 @@ let dbZoneLoaded=false;
 let dbZoneLoading=false;
 let deleteModeActive=false;
 let undoStack=[];
+let redoStack=[];
 let activeEditor=null;
 let editorCommitQueue=Promise.resolve();
+let dbLastUpdatedAt="";
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -115,6 +121,28 @@ function createBoard(){
 function toNumber(value){ const num=Number(value); return Number.isFinite(num)?num:0; }
 function normalizeCode(value){ return String(value||"").trim(); }
 function ensureBoard(zone,boardIndex){ while(data[zone].length<=boardIndex) data[zone].push(createBoard()); }
+
+
+function updateDbFreshnessLabel(){
+  const el=document.getElementById("dbFreshness");
+  if(!el) return;
+  if(!dbLastUpdatedAt){ el.style.display="none"; el.textContent="DB 갱신시각: -"; return; }
+  el.style.display="inline-block";
+  el.textContent=`DB 갱신시각: ${dbLastUpdatedAt}`;
+}
+
+async function apiPost(payload,{silent=false}={}){
+  try{
+    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify(payload)});
+    return await res.text();
+  }catch(err){
+    if(!silent) setStatus("네트워크 오류가 발생했습니다. 잠시 후 다시 시도하세요.","error");
+    try{
+      await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"logClientError",area:payload&&payload.action||"unknown",message:err&&err.message||String(err),detail:JSON.stringify(payload||{}),ua:navigator.userAgent})});
+    }catch(_){ }
+    throw err;
+  }
+}
 
 function collectBoardInventory(){
   const byCode={};
@@ -268,6 +296,8 @@ async function loadData(){
     });
 
     dbZoneLoaded=false;
+    dbLastUpdatedAt="";
+    updateDbFreshnessLabel();
     render();
     setStatus("");
   }catch(err){
@@ -283,8 +313,7 @@ async function loadDbZoneData(forceRefresh=false){
   data[5]=[createBoard()];
   dbZoneLoadError="";
   try{
-    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"getDbDiff",forceRefresh:!!forceRefresh})});
-    const text=await res.text();
+    const text=await apiPost({action:"getDbDiff",forceRefresh:!!forceRefresh});
 
     if(text==="NO_ACTION"){
       dbZoneLoadError="DB재고 로드 실패: Apps Script가 구버전입니다. 서버를 재배포하세요.";
@@ -358,6 +387,10 @@ async function loadDbZoneData(forceRefresh=false){
 
     if(!mismatchRows.length){
       dbZoneLoaded=true;
+    dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    updateDbFreshnessLabel();
+      dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      updateDbFreshnessLabel();
       setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
       return;
     }
@@ -384,6 +417,7 @@ function markDirty(zone,boardIndex,rowIndex){
 }
 
 function pushUndoSnapshot(zone,boardIndex,rowIndex,row){
+  redoStack=[];
   undoStack.push({
     zone,
     boardIndex,
@@ -423,10 +457,27 @@ function undoDelete(){
     return;
   }
   const last=undoStack.pop();
+  const current=data[last.zone][last.boardIndex][last.rowIndex];
+  redoStack.push({zone:last.zone,boardIndex:last.boardIndex,rowIndex:last.rowIndex,row:{...current}});
   ensureBoard(last.zone,last.boardIndex);
   data[last.zone][last.boardIndex][last.rowIndex]={...last.row};
   markDirty(last.zone,last.boardIndex,last.rowIndex);
   setStatus("마지막 삭제를 되돌렸습니다.","ok");
+  render();
+}
+
+function redoDelete(){
+  if(!redoStack.length){
+    alert("다시실행할 기록이 없습니다.");
+    return;
+  }
+  const last=redoStack.pop();
+  const current=data[last.zone][last.boardIndex][last.rowIndex];
+  undoStack.push({zone:last.zone,boardIndex:last.boardIndex,rowIndex:last.rowIndex,row:{...current}});
+  ensureBoard(last.zone,last.boardIndex);
+  data[last.zone][last.boardIndex][last.rowIndex]={...last.row};
+  markDirty(last.zone,last.boardIndex,last.rowIndex);
+  setStatus("되돌리기 취소를 적용했습니다.","ok");
   render();
 }
 
@@ -608,6 +659,7 @@ async function editCell(cell,boardIndex,rowIndex,field){
   cell.textContent=""; cell.appendChild(input); input.focus();
   activeEditor={cell,input,boardIndex,rowIndex,field,oldValue,committing:false};
   setEditorNavVisible(editMode && currentZone!==5);
+  try{ cell.scrollIntoView({block:"center",inline:"nearest",behavior:"smooth"}); }catch(_){}
 
   input.onblur=()=>{ finishActiveEditor(); };
 }
@@ -653,8 +705,7 @@ async function saveAll(){
   }
 
   try{
-    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"bulkSave",items,logs:pendingLogs})});
-    const text=await res.text();
+    const text=await apiPost({action:"bulkSave",items,logs:pendingLogs});
 
     if(text==="NO_ACTION") throw new Error("BULK_NO_ACTION");
 
@@ -663,6 +714,7 @@ async function saveAll(){
 
     dirtyMap={};
     pendingLogs=[];
+    redoStack=[];
     dbZoneLoaded=false;
     setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0})`,"ok");
     return;
@@ -677,14 +729,12 @@ async function saveAll(){
     const [z,b,s]=key.split("-");
     if(Number(z)===5) continue;
     const row=data[z][b][s];
-    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"updateSlot",zone:Number(z),board:Number(b)+1,slot_no:Number(s)+1,code:row.code,name:row.name,spec:row.spec,qty:row.qty})});
-    const text=await res.text();
+    const text=await apiPost({action:"updateSlot",zone:Number(z),board:Number(b)+1,slot_no:Number(s)+1,code:row.code,name:row.name,spec:row.spec,qty:row.qty});
     if(text!=="UPDATED"&&text!=="CREATED") failed.push(`${key}:${text}`);
   }
 
   for(const log of pendingLogs){
-    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"logUsage",zone:log.zone,board:log.board,code:log.code,type:log.type,qty:log.qty})});
-    const text=await res.text();
+    const text=await apiPost({action:"logUsage",zone:log.zone,board:log.board,code:log.code,type:log.type,qty:log.qty});
     if(text!=="LOGGED") failed.push(`LOG:${log.code}:${text}`);
   }
 
@@ -705,8 +755,7 @@ async function saveAll(){
 
 async function addBoard(){
   const boardNo=data[currentZone].length+1;
-  const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"createBoard",zone:currentZone,board:boardNo})});
-  const text=await res.text();
+  const text=await apiPost({action:"createBoard",zone:currentZone,board:boardNo});
   if(text!=="BOARD_CREATED"){
     if(text==="NO_ACTION"){
       setStatus("현황판 추가 실패: 서버 배포가 구버전입니다. Apps Script 재배포 후 다시 시도하세요.","error");
@@ -725,8 +774,7 @@ async function deleteCurrentBoard(){
   if(data[currentZone].length<=1){ alert("현황판은 최소 1개가 필요합니다."); return; }
   const boardNo=currentBoardIndex+1;
   if(!confirm(`${currentZone}구역의 ${boardNo}번 현황판을 삭제할까요?`)) return;
-  const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"deleteBoard",zone:currentZone,board:boardNo})});
-  const text=await res.text();
+  const text=await apiPost({action:"deleteBoard",zone:currentZone,board:boardNo});
   if(text!=="BOARD_DELETED"){
     if(text==="NO_ACTION") setStatus("현황판 삭제는 현재 서버 배포에서 미지원입니다. Apps Script 재배포 후 사용하세요.","warn");
     else setStatus(`현황판 삭제 실패: ${text}`,"error");
@@ -759,6 +807,7 @@ document.getElementById("cutBtn").onclick=cutSlot;
 document.getElementById("pasteBtn").onclick=pasteSlot;
 document.getElementById("clearBtn").onclick=clearSlotIfZero;
 document.getElementById("undoBtn").onclick=undoDelete;
+document.getElementById("redoBtn").onclick=redoDelete;
 document.getElementById("editorPrevBtn").onclick=()=>moveEditor(-1);
 document.getElementById("editorNextBtn").onclick=()=>moveEditor(1);
 document.getElementById("editorDoneBtn").onclick=()=>finishActiveEditor();
@@ -787,6 +836,7 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
     setEditorNavVisible(false);
     setDeleteMode(false);
     activeEditor=null;
+    if(currentZone!==5) updateDbFreshnessLabel();
 
     if(currentZone===5 && !dbZoneLoaded){
       setStatus("DB재고 불러오는 중...","info");
