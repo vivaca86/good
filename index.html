@@ -53,10 +53,11 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
   <div class="control-row">
     <button id="addBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">＋</span>현황판 추가</button>
     <button id="deleteBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">－</span>현황판 삭제</button>
-    <button id="copyBtn" class="control-btn clip-action edit-only db-only" style="display:none;"><span class="btn-icon">⧉</span>복사</button>
+    <button id="clearBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="품목삭제 모드"><span class="btn-icon">⌫</span>품목삭제</button>
+    <button id="undoBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;" title="마지막 삭제/잘라내기 되돌리기"><span class="btn-icon">↶</span>되돌리기</button>
     <button id="cutBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">✂</span>잘라내기</button>
     <button id="pasteBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">📋</span>붙여넣기</button>
-    <button id="clearBtn" class="control-btn clip-action edit-only non-db-only" style="display:none;"><span class="btn-icon">⌫</span>슬롯 비우기</button>
+    <button id="copyBtn" class="control-btn clip-action edit-only db-only" style="display:none;"><span class="btn-icon">⧉</span>복사</button>
     <button id="editBtn" class="control-btn primary-action"><span class="btn-icon">✎</span>편집</button>
     <button id="installBtn" class="control-btn" style="display:none;"><span class="btn-icon">⬇</span>앱 설치</button>
   </div>
@@ -71,7 +72,7 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 </div>
 
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbwsa7z64OmnoqbQFoKfUi1AUGtX0Fk5XGTx8NVe6qCCaZ80lRFYeCIM3_nR26LPw3bP/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbw4CDDK-_c_xg44HyYoOHUG2C_E5KHcENQjJZpJbXlSKHyvFA3rcojIGq2fpNZrqXLK/exec";
 const slotsPerBoard=12;
 let currentZone=1;
 let currentBoardIndex=0;
@@ -84,6 +85,8 @@ let pendingLogs=[];
 let deferredInstallPrompt=null;
 let dbZoneLoaded=false;
 let dbZoneLoading=false;
+let deleteModeActive=false;
+let undoStack=[];
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -361,6 +364,53 @@ function markDirty(zone,boardIndex,rowIndex){
   dirtyMap[`${zone}-${boardIndex}-${rowIndex}`]=true;
 }
 
+function pushUndoSnapshot(zone,boardIndex,rowIndex,row){
+  undoStack.push({
+    zone,
+    boardIndex,
+    rowIndex,
+    row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(row.qty||"")}
+  });
+  if(undoStack.length>50) undoStack.shift();
+}
+
+function clearRow(zone,boardIndex,rowIndex){
+  data[zone][boardIndex][rowIndex]={code:"",name:"",spec:"",qty:""};
+  markDirty(zone,boardIndex,rowIndex);
+}
+
+function performDeleteWithConfirm(zone,boardIndex,rowIndex){
+  const row=data[zone][boardIndex][rowIndex];
+  const code=row.code||"";
+  const name=[row.name||"",row.spec||""].filter(Boolean).join(" ").trim();
+  const qty=String(row.qty||"");
+  if(!code && !name && !qty){
+    alert("이미 비어있는 슬롯입니다.");
+    return false;
+  }
+
+  const ok=confirm(`[품목코드:${code||"-"} / 품목명:${name||"-"} / 재고:${qty||"0"}] 항목을 지우시겠습니까?`);
+  if(!ok) return false;
+
+  pushUndoSnapshot(zone,boardIndex,rowIndex,row);
+  clearRow(zone,boardIndex,rowIndex);
+  setStatus("품목 삭제 완료 (되돌리기 가능)","ok");
+  return true;
+}
+
+function undoDelete(){
+  if(!undoStack.length){
+    alert("되돌릴 삭제 기록이 없습니다.");
+    return;
+  }
+  const last=undoStack.pop();
+  ensureBoard(last.zone,last.boardIndex);
+  data[last.zone][last.boardIndex][last.rowIndex]={...last.row};
+  markDirty(last.zone,last.boardIndex,last.rowIndex);
+  setStatus("마지막 삭제를 되돌렸습니다.","ok");
+  render();
+}
+
 function handleSlotTap(event,cell,boardIndex,rowIndex,field){
   if(event) event.stopPropagation();
   const same=selectedSlot &&
@@ -383,6 +433,12 @@ function handleSlotTap(event,cell,boardIndex,rowIndex,field){
 
   cell.classList.add("selected-slot");
   selectedSlot={zone:currentZone,boardIndex,rowIndex,field,cellEl:cell};
+
+  if(editMode && currentZone!==5 && deleteModeActive){
+    const deleted=performDeleteWithConfirm(currentZone,boardIndex,rowIndex);
+    if(deleted) render();
+    return;
+  }
 
   if(editMode && currentZone!==5 && same){
     editCell(cell,boardIndex,rowIndex,field);
@@ -410,9 +466,9 @@ function cutSlot(){
   const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
   clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(toNumber(row.qty))}};
 
-  data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex]={code:"",name:"",spec:"",qty:""};
-  markDirty(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
-  setStatus("슬롯 잘라내기 완료","ok");
+  pushUndoSnapshot(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex,row);
+  clearRow(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
+  setStatus("슬롯 잘라내기 완료 (되돌리기 가능)","ok");
   render();
 }
 
@@ -438,22 +494,10 @@ function pasteSlot(){
 }
 
 function clearSlotIfZero(){
-  if(!selectedSlot){ alert("먼저 삭제할 셀을 선택하세요."); return; }
-  if(selectedSlot.zone===5){ alert("DB구역은 삭제할 수 없습니다."); return; }
-
-  const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
-  const qtyText=String(row.qty||"").trim();
-  const qtyNum=toNumber(qtyText);
-
-  if(qtyText!=="" && qtyNum!==0){
-    alert("재고가 0 또는 빈값일 때만 슬롯 비우기가 가능합니다.");
-    return;
-  }
-
-  data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex]={code:"",name:"",spec:"",qty:""};
-  markDirty(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
-  setStatus("슬롯 비우기 완료","ok");
-  render();
+  if(currentZone===5){ alert("DB구역에서는 품목삭제를 사용할 수 없습니다."); return; }
+  deleteModeActive=!deleteModeActive;
+  if(deleteModeActive) setStatus("품목삭제 모드: 삭제할 슬롯을 선택하세요.","warn");
+  else setStatus("품목삭제 모드 해제","info");
 }
 
 function editCell(cell,boardIndex,rowIndex,field){
@@ -601,7 +645,10 @@ document.getElementById("editBtn").onclick=async ()=>{
   const editBtn=document.getElementById("editBtn");
   editBtn.innerHTML=editMode?'<span class="btn-icon">✓</span>완료':'<span class="btn-icon">✎</span>편집';
   editBtn.classList.toggle("done-state",editMode);
-  if(!editMode) await saveAll();
+  if(!editMode){
+    deleteModeActive=false;
+    await saveAll();
+  }
   render();
 };
 
@@ -611,6 +658,7 @@ document.getElementById("copyBtn").onclick=copySlot;
 document.getElementById("cutBtn").onclick=cutSlot;
 document.getElementById("pasteBtn").onclick=pasteSlot;
 document.getElementById("clearBtn").onclick=clearSlotIfZero;
+document.getElementById("undoBtn").onclick=undoDelete;
 
 document.getElementById("boardDots").onclick=(e)=>{
   const total=data[currentZone].length;
