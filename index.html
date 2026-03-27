@@ -129,7 +129,14 @@ function createBoard(){
   return Array.from({length:slotsPerBoard},()=>({code:"",name:"",spec:"",qty:""}));
 }
 function toNumber(value){ const num=Number(value); return Number.isFinite(num)?num:0; }
-function normalizeCode(value){ return String(value||"").trim(); }
+function normalizeCode(value){
+  return String(value||"")
+    .trim()
+    .replace(/^\uFEFF+/,"")
+    .replace(/^[`'‘’＇]+/,"")
+    .replace(/\s+/g,"")
+    .toUpperCase();
+}
 function ensureBoard(zone,boardIndex){ while(data[zone].length<=boardIndex) data[zone].push(createBoard()); }
 
 

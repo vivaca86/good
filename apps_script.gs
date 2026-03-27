@@ -281,7 +281,12 @@ function parseNumber(value) {
 }
 
 function normalizeCode(value) {
-  return String(value || '').trim();
+  return String(value || '')
+    .trim()
+    .replace(/^\uFEFF+/, '')
+    .replace(/^[`'‘’＇]+/, '')
+    .replace(/\s+/g, '')
+    .toUpperCase();
 }
 
 
