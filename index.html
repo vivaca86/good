@@ -112,6 +112,7 @@ let pendingLogs=[];
 let deferredInstallPrompt=null;
 let dbZoneLoaded=false;
 let dbZoneLoading=false;
+let dbZoneLoadingPromise=null;
 let deleteModeActive=false;
 let undoStack=[];
 let redoStack=[];
@@ -120,6 +121,10 @@ let editorCommitQueue=Promise.resolve();
 let dbLastUpdatedAt="";
 let searchKeyword="";
 let isSaving=false;
+let manualRefreshInFlight=false;
+let pullRefreshActive=false;
+let pullRefreshTriggered=false;
+let pullRefreshStartY=0;
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -128,7 +133,14 @@ function createBoard(){
   return Array.from({length:slotsPerBoard},()=>({code:"",name:"",spec:"",qty:""}));
 }
 function toNumber(value){ const num=Number(value); return Number.isFinite(num)?num:0; }
-function normalizeCode(value){ return String(value||"").trim(); }
+function normalizeCode(value){
+  return String(value||"")
+    .trim()
+    .replace(/^\uFEFF+/,"")
+    .replace(/^[`'‘’＇]+/,"")
+    .replace(/\s+/g,"")
+    .toUpperCase();
+}
 function ensureBoard(zone,boardIndex){ while(data[zone].length<=boardIndex) data[zone].push(createBoard()); }
 
 
@@ -286,7 +298,7 @@ function render(){
         td.title=String(row[field]||"");
         if(field==="qty"){ td.style.fontWeight="700"; td.style.fontSize="18px"; }
         if(currentZone===5 && field==="qty") {
-          if(row.mismatchType==="dbOnly") td.style.color="#c62828";
+          if(row.mismatchType==="dbOnly" || row.mismatchType==="slotOver") td.style.color="#c62828";
           else if(row.mismatchType==="boardOnly") td.style.color="#1565c0";
           else td.style.color="#334155";
         }
@@ -317,8 +329,9 @@ function goToBoard(index,smooth=true){
   updateBoardIndicator();
 }
 
-async function loadData(){
+async function loadData({silent=false,rerender=true}={}){
   try{
+    for(let z=1;z<=4;z++) data[z]=[createBoard()];
     const res=await fetch(SCRIPT_URL);
     const rows=await res.json();
     if(!Array.isArray(rows)) throw new Error("응답 형식 오류");
@@ -333,116 +346,149 @@ async function loadData(){
     dbZoneLoaded=false;
     dbLastUpdatedAt="";
     updateDbFreshnessLabel();
-    render();
-    setStatus("");
+    if(rerender) render();
+    if(!silent) setStatus("");
   }catch(err){
     console.error(err);
-    setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
+    if(!silent){
+      setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
+      return;
+    }
+    throw err;
+  }
+}
+
+async function refreshFromServer({forceDb=false,showStatus=true}={}){
+  if(manualRefreshInFlight) return false;
+  manualRefreshInFlight=true;
+  const zoneBefore=currentZone;
+  const boardBefore=currentBoardIndex;
+  try{
+    await loadData({silent:true,rerender:false});
+    if(zoneBefore===5){
+      await loadDbZoneData(!!forceDb);
+    }
+    currentZone=zoneBefore;
+    render();
+    goToBoard(Math.min(boardBefore,Math.max(0,data[currentZone].length-1)),false);
+    if(showStatus) setStatus("최신 데이터로 새로고침 완료","ok");
+    return true;
+  }catch(err){
+    console.warn("수동 새로고침 실패:",err);
+    if(showStatus) setStatus("새로고침 실패: 네트워크/권한을 확인하세요.","error");
+    return false;
+  }finally{
+    manualRefreshInFlight=false;
   }
 }
 
 
 async function loadDbZoneData(forceRefresh=false){
-  if(dbZoneLoading) return;
+  if(dbZoneLoading && dbZoneLoadingPromise){
+    return dbZoneLoadingPromise;
+  }
   dbZoneLoading=true;
-  data[5]=[createBoard()];
-  dbZoneLoadError="";
-  try{
-    const text=await apiPost({action:"getDbDiff",forceRefresh:!!forceRefresh});
-
-    if(text==="NO_ACTION"){
-      dbZoneLoadError="DB재고 로드 실패: Apps Script가 구버전입니다. 서버를 재배포하세요.";
-      return;
-    }
-
-    let rows=[];
+  dbZoneLoadingPromise=(async()=>{
+    data[5]=[createBoard()];
+    dbZoneLoadError="";
     try{
-      rows=JSON.parse(text);
-    }catch(_){
-      dbZoneLoadError="DB재고 로드 실패: 서버 응답 형식을 확인하세요.";
-      return;
-    }
+      const text=await apiPost({action:"getDbDiff",forceRefresh:!!forceRefresh});
 
-    if(!Array.isArray(rows)){
-      dbZoneLoadError="DB재고 로드 실패: 배열 응답이 아닙니다.";
-      return;
-    }
-
-    const boardByCode=collectBoardInventory();
-    const dbByCode={};
-    rows.forEach(row=>{
-      const code=normalizeCode(row.code);
-      if(!code) return;
-      dbByCode[code]={
-        code,
-        name:normalizeCode(row.name),
-        qty:toNumber(row.qty)
-      };
-    });
-
-    const mismatchRows=[];
-
-    Object.keys(dbByCode).forEach(code=>{
-      const dbRow=dbByCode[code];
-      const boardRow=boardByCode[code];
-      const dbQty=toNumber(dbRow.qty);
-      const boardQty=boardRow?toNumber(boardRow.qty):0;
-      const diffQty=Math.abs(dbQty-boardQty);
-
-      if(!boardRow || diffQty!==0){
-        mismatchRows.push({
-          code:dbRow.code,
-          name:dbRow.name,
-          spec:"",
-          qty:String(diffQty),
-          mismatchType:"dbOnly"
-        });
+      if(text==="NO_ACTION"){
+        dbZoneLoadError="DB재고 로드 실패: Apps Script가 구버전입니다. 서버를 재배포하세요.";
+        return {ok:false,error:dbZoneLoadError};
       }
-    });
 
-    Object.keys(boardByCode).forEach(code=>{
-      if(dbByCode[code]) return;
-      const row=boardByCode[code];
-      const qty=toNumber(row.qty);
-      mismatchRows.push({
-        code:row.code,
-        name:row.name,
-        spec:"",
-        qty:String(qty),
-        mismatchType:"boardOnly"
+      let rows=[];
+      try{
+        rows=JSON.parse(text);
+      }catch(_){
+        dbZoneLoadError="DB재고 로드 실패: 서버 응답 형식을 확인하세요.";
+        return {ok:false,error:dbZoneLoadError};
+      }
+
+      if(!Array.isArray(rows)){
+        dbZoneLoadError="DB재고 로드 실패: 배열 응답이 아닙니다.";
+        return {ok:false,error:dbZoneLoadError};
+      }
+
+      const boardByCode=collectBoardInventory();
+      const dbByCode={};
+      rows.forEach(row=>{
+        const code=normalizeCode(row.code);
+        if(!code) return;
+        dbByCode[code]={
+          code,
+          name:normalizeCode(row.name),
+          qty:toNumber(row.qty)
+        };
       });
-    });
 
-    mismatchRows.sort((a,b)=>{
-      const rank=(row)=>row.mismatchType==='dbOnly'?0:1;
-      const byType=rank(a)-rank(b);
-      if(byType!==0) return byType;
-      return a.code.localeCompare(b.code,'ko');
-    });
+      const mismatchRows=[];
 
-    if(!mismatchRows.length){
+      Object.keys(dbByCode).forEach(code=>{
+        const dbRow=dbByCode[code];
+        const boardRow=boardByCode[code];
+        const dbQty=toNumber(dbRow.qty);
+        const boardQty=boardRow?toNumber(boardRow.qty):0;
+        const diffQty=dbQty-boardQty;
+
+        if(!boardRow || diffQty!==0){
+          mismatchRows.push({
+            code:dbRow.code,
+            name:dbRow.name,
+            spec:"",
+            qty:String(diffQty),
+            mismatchType:diffQty<0?"slotOver":"dbOnly"
+          });
+        }
+      });
+
+      Object.keys(boardByCode).forEach(code=>{
+        if(dbByCode[code]) return;
+        const row=boardByCode[code];
+        const qty=toNumber(row.qty);
+        mismatchRows.push({
+          code:row.code,
+          name:row.name,
+          spec:"",
+          qty:String(-qty),
+          mismatchType:"slotOver"
+        });
+      });
+
+      mismatchRows.sort((a,b)=>{
+        const rank=(row)=>row.mismatchType==='dbOnly'?0:1;
+        const byType=rank(a)-rank(b);
+        if(byType!==0) return byType;
+        return a.code.localeCompare(b.code,'ko');
+      });
+
       dbZoneLoaded=true;
       dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
       updateDbFreshnessLabel();
-      setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
-      return;
+      if(!mismatchRows.length){
+        return {ok:true,mismatchCount:0};
+      }
+
+      mismatchRows.forEach((row,idx)=>{
+        const b=Math.floor(idx/slotsPerBoard);
+        const s=idx%slotsPerBoard;
+        ensureBoard(5,b);
+        data[5][b][s]=row;
+      });
+
+      return {ok:true,mismatchCount:mismatchRows.length};
+    }catch(err){
+      console.warn("DB 구역 로드 실패:",err);
+      dbZoneLoadError="DB재고 로드 실패: 네트워크/권한을 확인하세요.";
+      dbZoneLoaded=false;
+      return {ok:false,error:dbZoneLoadError};
+    }finally{
+      dbZoneLoading=false;
     }
-
-    mismatchRows.forEach((row,idx)=>{
-      const b=Math.floor(idx/slotsPerBoard);
-      const s=idx%slotsPerBoard;
-      ensureBoard(5,b);
-      data[5][b][s]=row;
-    });
-
-    dbZoneLoaded=true;
-  }catch(err){
-    console.warn("DB 구역 로드 실패:",err);
-    dbZoneLoadError="DB재고 로드 실패: 네트워크/권한을 확인하세요.";
-    dbZoneLoaded=false;
-  }finally{
-    dbZoneLoading=false;
-  }
+  })();
+  return dbZoneLoadingPromise;
 }
 
 function markDirty(zone,boardIndex,rowIndex){
@@ -764,7 +810,8 @@ async function saveAll(){
       pendingLogs=[];
       redoStack=[];
       dbZoneLoaded=false;
-      setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0})`,"ok");
+      await refreshFromServer({forceDb:true,showStatus:false});
+      setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0}) · 동기화 완료`,"ok");
       return;
     }catch(err){
       console.warn("bulkSave 실패, 개별 저장 fallback:",err);
@@ -798,7 +845,8 @@ async function saveAll(){
     dirtyMap={};
     pendingLogs=[];
     dbZoneLoaded=false;
-    setStatus("저장 완료","ok");
+    await refreshFromServer({forceDb:true,showStatus:false});
+    setStatus("저장 완료 · 동기화 완료","ok");
   }finally{
     setSavingState(false);
   }
@@ -873,9 +921,41 @@ editorNextBtn.onclick=()=>moveEditor(1);
 editorDoneBtn.onclick=()=>finishActiveEditor();
 document.getElementById("refreshDbBtn").onclick=async ()=>{
   setStatus("DB재고 강제 새로고침 중...","info");
-  await loadDbZoneData(true);
+  const result=await loadDbZoneData(true);
+  if(result&&result.ok){
+    if(result.mismatchCount===0) setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
+    else setStatus(`DB재고 비교 완료: ${result.mismatchCount}건 차이가 있습니다.`,"warn");
+  }else if(dbZoneLoadError){
+    setStatus(dbZoneLoadError,"warn");
+  }
   if(currentZone===5) render();
 };
+document.getElementById("boardWrapper").addEventListener("touchstart",(e)=>{
+  if(e.touches.length!==1 || editMode || isSaving || manualRefreshInFlight) return;
+  if(window.scrollY>0) return;
+  pullRefreshActive=true;
+  pullRefreshTriggered=false;
+  pullRefreshStartY=e.touches[0].clientY;
+},{passive:true});
+
+document.getElementById("boardWrapper").addEventListener("touchmove",(e)=>{
+  if(!pullRefreshActive || pullRefreshTriggered) return;
+  const delta=e.touches[0].clientY-pullRefreshStartY;
+  if(delta<90) return;
+  pullRefreshTriggered=true;
+  setStatus("새로고침 중...","info");
+  refreshFromServer({forceDb:currentZone===5,showStatus:true});
+},{passive:true});
+
+document.getElementById("boardWrapper").addEventListener("touchend",()=>{
+  pullRefreshActive=false;
+  pullRefreshTriggered=false;
+});
+
+document.getElementById("boardWrapper").addEventListener("touchcancel",()=>{
+  pullRefreshActive=false;
+  pullRefreshTriggered=false;
+});
 document.getElementById("searchInput").addEventListener("input",(e)=>{
   searchKeyword=String(e.target.value||"").trim().toLowerCase();
   render();
@@ -909,7 +989,11 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
 
     if(currentZone===5 && !dbZoneLoaded){
       setStatus("DB재고 불러오는 중...","info");
-      await loadDbZoneData();
+      const result=await loadDbZoneData();
+      if(result&&result.ok){
+        if(result.mismatchCount===0) setStatus("DB재고 비교 결과: DB 시트와 1~4구역 현황판 차이가 없습니다.","ok");
+        else setStatus(`DB재고 비교 완료: ${result.mismatchCount}건 차이가 있습니다.`,"warn");
+      }
     }
 
     render();
