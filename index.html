@@ -190,12 +190,14 @@ function collectBoardInventory(){
       board.forEach(row=>{
         const code=normalizeCode(row.code);
         if(!code) return;
+        const qty=toNumber(row.qty);
+        if(qty<=0) return;
         const name=normalizeCode(row.name);
         const spec=normalizeCode(row.spec);
         const displayName=[name,spec].filter(Boolean).join(' ').trim();
 
         if(!byCode[code]) byCode[code]={code,name:displayName,qty:0};
-        byCode[code].qty+=toNumber(row.qty);
+        byCode[code].qty+=qty;
         if(!byCode[code].name && displayName) byCode[code].name=displayName;
       });
     });
