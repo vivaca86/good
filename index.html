@@ -294,7 +294,7 @@ function render(){
         td.title=String(row[field]||"");
         if(field==="qty"){ td.style.fontWeight="700"; td.style.fontSize="18px"; }
         if(currentZone===5 && field==="qty") {
-          if(row.mismatchType==="dbOnly") td.style.color="#c62828";
+          if(row.mismatchType==="dbOnly" || row.mismatchType==="slotOver") td.style.color="#c62828";
           else if(row.mismatchType==="boardOnly") td.style.color="#1565c0";
           else td.style.color="#334155";
         }
@@ -398,7 +398,7 @@ async function loadDbZoneData(forceRefresh=false){
         const boardRow=boardByCode[code];
         const dbQty=toNumber(dbRow.qty);
         const boardQty=boardRow?toNumber(boardRow.qty):0;
-        const diffQty=Math.abs(dbQty-boardQty);
+        const diffQty=dbQty-boardQty;
 
         if(!boardRow || diffQty!==0){
           mismatchRows.push({
@@ -406,7 +406,7 @@ async function loadDbZoneData(forceRefresh=false){
             name:dbRow.name,
             spec:"",
             qty:String(diffQty),
-            mismatchType:"dbOnly"
+            mismatchType:diffQty<0?"slotOver":"dbOnly"
           });
         }
       });
@@ -419,8 +419,8 @@ async function loadDbZoneData(forceRefresh=false){
           code:row.code,
           name:row.name,
           spec:"",
-          qty:String(qty),
-          mismatchType:"boardOnly"
+          qty:String(-qty),
+          mismatchType:"slotOver"
         });
       });
 
