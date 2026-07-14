@@ -8,18 +8,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <title>재고 시스템 최종버전</title>
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
 body{margin:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#334155;}
 .app{width:100%;min-height:100vh;background:linear-gradient(180deg,#fcfdff 0%,#f7f9fc 100%);display:flex;flex-direction:column;}
 .top-bar{background:rgba(255,255,255,.92);backdrop-filter:blur(6px);padding:12px;display:flex;flex-direction:column;gap:10px;align-items:stretch;border-bottom:1px solid #e5ebf3;box-shadow:0 8px 24px rgba(148,163,184,.18);}
 .zone-tabs{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:8px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 8px 20px rgba(148,163,184,.12);-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-.zone-btn{font-size:15px;color:#334155;padding:7px 12px;border-radius:10px;border:1px solid #e2e8f0;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(148,163,184,.18);white-space:nowrap;word-break:keep-all;flex:0 0 auto;}
+.zone-btn{font-size:15px;color:#334155;padding:7px 12px;min-height:44px;border-radius:10px;border:1px solid #e2e8f0;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(148,163,184,.18);white-space:nowrap;word-break:keep-all;flex:0 0 auto;}
 .zone-btn.active{font-weight:700;color:#0f172a;background:linear-gradient(180deg,#ffffff 0%,#eef4ff 100%);border-color:#cbdaf8;box-shadow:0 6px 16px rgba(59,130,246,.2);}
 .zone-divider{color:#c0cddd;font-size:14px;user-select:none;}
 .control-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .control-row.compact{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
-.control-btn{color:#1e293b;padding:7px 12px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(148,163,184,.16);font-size:14px;font-weight:600;}
+.control-btn{color:#1e293b;padding:7px 12px;min-height:44px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(148,163,184,.16);font-size:14px;font-weight:600;}
 .control-btn.board-action,.control-btn.clip-action,.control-btn.primary-action{background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);border-color:#dbe4ef;}
 .control-btn.board-action{padding:4px 8px;font-size:12px;opacity:.82;}
 #deleteBoardBtn{border-color:#fecaca;color:#b91c1c;background:linear-gradient(180deg,#fff 0%,#fff5f5 100%);} #deleteBoardBtn .btn-icon{color:#b91c1c;}
@@ -28,8 +27,9 @@ body{margin:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,sa
 #redoBtn{display:none;}
 .db-freshness{font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:4px 8px;align-self:flex-start;}
 .search-input{flex:1 1 220px;min-width:180px;border:1px solid #dbe4ef;border-radius:10px;padding:8px 10px;background:#fff;color:#334155;font-size:16px;}
-.refresh-btn{flex:0 0 auto;border:1px solid #dbe4ef;background:#fff;border-radius:10px;padding:7px 10px;color:#334155;font-size:13px;white-space:nowrap;}
+.refresh-btn{flex:0 0 auto;border:1px solid #dbe4ef;background:#fff;border-radius:10px;padding:7px 10px;min-height:44px;color:#334155;font-size:13px;white-space:nowrap;}
 .control-btn.saving{opacity:.65;pointer-events:none;}
+.control-btn:disabled,.refresh-btn:disabled{opacity:.55;cursor:not-allowed;}
 .btn-icon{width:18px;height:18px;border-radius:6px;background:linear-gradient(180deg,#f8fbff 0%,#e8eff8 100%);border:1px solid #d6dfeb;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#475569;box-shadow:inset 0 1px 0 rgba(255,255,255,.9);}
 .board-wrapper{flex:1;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .board{min-width:100%;scroll-snap-align:start;}
@@ -40,10 +40,14 @@ th,td{padding:12px 10px;font-size:16px;border-bottom:1px solid #e5ebf3;border-ri
 th:last-child,td:last-child{border-right:none;}
 tbody td{height:52px;}
 tbody tr:nth-child(even){background:#f8fbff;}
+td[tabindex="0"]:focus-visible,.board-dot:focus-visible,.zone-btn:focus-visible,.control-btn:focus-visible,.refresh-btn:focus-visible{outline:3px solid #2563eb;outline-offset:2px;}
 input.inline-edit{width:100%;border:none;outline:none;background:transparent;font-size:16px;text-align:center;line-height:1.25;}
 td.editing-cell{position:relative;background:#fffef2 !important;box-shadow:inset 0 0 0 3px #93c5fd;z-index:1;}
 td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5fa;}
 .cell-preview{position:fixed;z-index:9999;max-width:240px;background:#23272f;color:#fff;padding:8px 10px;border-radius:8px;font-size:14px;line-height:1.25;box-shadow:0 6px 16px rgba(0,0,0,.25);display:none;pointer-events:none;word-break:break-word;}
+.board-dots{display:inline-flex;gap:4px;color:#64748b;}
+.board-dot{width:44px;height:44px;border:0;background:transparent;color:#94a3b8;font-size:18px;border-radius:999px;cursor:pointer;}
+.board-dot.active{color:#2563eb;font-size:21px;}
 @media (max-width: 520px){
   .zone-tabs{gap:6px;padding:6px;}
   .zone-btn{font-size:13px;padding:6px 9px;gap:4px;}
@@ -53,7 +57,7 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 
 
 .editor-nav{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:12000;display:none;gap:8px;justify-content:flex-end;padding:8px;background:rgba(255,255,255,.95);border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 8px 22px rgba(15,23,42,.15);backdrop-filter:blur(6px);}
-.editor-nav button{border:1px solid #cfd8e6;background:#fff;border-radius:10px;padding:7px 12px;font-weight:700;color:#334155;min-width:42px;}
+.editor-nav button{border:1px solid #cfd8e6;background:#fff;border-radius:10px;padding:7px 12px;font-weight:700;color:#334155;min-width:44px;min-height:44px;}
 .editor-nav button.done{border-color:#86efac;color:#166534;background:#f0fdf4;}
 </style>
 </head>
@@ -61,12 +65,12 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 
 <div class="app">
 <div class="top-bar">
-  <div class="zone-tabs">
-    <button class="zone-btn active" data-zone="1"><span class="btn-icon">①</span>1구역</button>
-    <button class="zone-btn" data-zone="2"><span class="btn-icon">②</span>2구역</button>
-    <button class="zone-btn" data-zone="3"><span class="btn-icon">③</span>3구역</button>
-    <button class="zone-btn" data-zone="4"><span class="btn-icon">④</span>4구역</button>
-    <button class="zone-btn" data-zone="5"><span class="btn-icon">DB</span>DB재고</button>
+  <div class="zone-tabs" role="tablist" aria-label="재고 구역">
+    <button class="zone-btn active" data-zone="1" role="tab" aria-selected="true"><span class="btn-icon">①</span>1구역</button>
+    <button class="zone-btn" data-zone="2" role="tab" aria-selected="false"><span class="btn-icon">②</span>2구역</button>
+    <button class="zone-btn" data-zone="3" role="tab" aria-selected="false"><span class="btn-icon">③</span>3구역</button>
+    <button class="zone-btn" data-zone="4" role="tab" aria-selected="false"><span class="btn-icon">④</span>4구역</button>
+    <button class="zone-btn" data-zone="5" role="tab" aria-selected="false"><span class="btn-icon">DB</span>DB 비교</button>
   </div>
   <div class="control-row">
     <button id="addBoardBtn" class="control-btn board-action edit-only non-db-only" style="display:none;"><span class="btn-icon">＋</span>현황판 추가</button>
@@ -85,10 +89,10 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
   <div id="dbFreshness" class="db-freshness" style="display:none;">DB 갱신시각: -</div>
 </div>
 
-<div id="statusBar" style="display:none;padding:10px 12px;font-size:14px;"></div>
+<div id="statusBar" role="status" aria-live="polite" aria-atomic="true" style="display:none;padding:10px 12px;font-size:14px;"></div>
 <div id="boardWrapper" class="board-wrapper"></div>
 <div id="boardDotsWrap" style="padding:8px 12px 12px;text-align:center;background:#f7f9fc;">
-  <div id="boardDots" style="display:inline-block;color:#64748b;font-size:18px;letter-spacing:2px;">●</div>
+  <div id="boardDots" class="board-dots" role="navigation" aria-label="현황판 이동"></div>
 </div>
 <div id="cellPreview" class="cell-preview"></div>
 <div id="editorNav" class="editor-nav" aria-hidden="true">
@@ -98,7 +102,19 @@ td.selected-slot{background:#eff6ff !important;box-shadow:inset 0 0 0 2px #60a5f
 </div>
 </div>
 
+<script src="core.js?v=20260714a"></script>
 <script>
+if(!window.GoodCore){
+  const status=document.getElementById("statusBar");
+  if(status){
+    status.style.display="block";
+    status.style.background="#fee2e2";
+    status.style.color="#991b1b";
+    status.textContent="필수 파일(core.js)을 불러오지 못했습니다. 정적 파일을 함께 배포한 뒤 새로고침하세요.";
+  }
+  document.querySelectorAll("button,input").forEach((element)=>{ element.disabled=true; });
+  throw new Error("GOOD_CORE_NOT_LOADED");
+}
 const SCRIPT_URL="https://script.google.com/macros/s/AKfycbzk9F62WzEKwR_GaIK8LQOi1q_4ic5ZUFv0voFaJ-g9BlNzNwtubJir0DbWkxYSRqQo/exec";
 const slotsPerBoard=12;
 let currentZone=1;
@@ -125,6 +141,13 @@ let manualRefreshInFlight=false;
 let pullRefreshActive=false;
 let pullRefreshTriggered=false;
 let pullRefreshStartY=0;
+let boardMutationInFlight=false;
+let offlineSnapshotMode=false;
+let pendingBulkRequest=null;
+let pendingDeleteRequest=null;
+
+const DATA_SNAPSHOT_KEY="inventory-readonly-snapshot-v1";
+const API_TIMEOUT_MS=15000;
 
 const data={};
 for(let z=1;z<=5;z++) data[z]=[createBoard()];
@@ -132,16 +155,62 @@ for(let z=1;z<=5;z++) data[z]=[createBoard()];
 function createBoard(){
   return Array.from({length:slotsPerBoard},()=>({code:"",name:"",spec:"",qty:""}));
 }
-function toNumber(value){ const num=Number(value); return Number.isFinite(num)?num:0; }
-function normalizeCode(value){
-  return String(value||"")
-    .trim()
-    .replace(/^\uFEFF+/,"")
-    .replace(/^[`'‘’＇]+/,"")
-    .replace(/\s+/g,"")
-    .toUpperCase();
+function toNumber(value){ const parsed=GoodCore.parseQuantity(value); return parsed.ok?parsed.value:0; }
+const normalizeCode=GoodCore.normalizeCode;
+function ensureBoardIn(target,zone,boardIndex){ while(target[zone].length<=boardIndex) target[zone].push(createBoard()); }
+function ensureBoard(zone,boardIndex){ ensureBoardIn(data,zone,boardIndex); }
+
+async function fetchWithTimeout(url,options={},timeoutMs=API_TIMEOUT_MS){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const res=await fetch(url,{...options,signal:controller.signal});
+    if(!res.ok) throw new Error(`HTTP_${res.status}`);
+    return res;
+  }finally{
+    clearTimeout(timer);
+  }
 }
-function ensureBoard(zone,boardIndex){ while(data[zone].length<=boardIndex) data[zone].push(createBoard()); }
+
+function saveReadonlySnapshot(){
+  try{
+    const zones={};
+    for(let z=1;z<=4;z++) zones[z]=data[z];
+    localStorage.setItem(DATA_SNAPSHOT_KEY,JSON.stringify({savedAt:new Date().toISOString(),zones}));
+  }catch(err){ console.warn("로컬 스냅샷 저장 실패:",err); }
+}
+
+function restoreReadonlySnapshot(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(DATA_SNAPSHOT_KEY)||"null");
+    if(!parsed || !parsed.zones) return false;
+    const restored={};
+    for(let z=1;z<=4;z++){
+      const sourceBoards=parsed.zones[z];
+      if(!Array.isArray(sourceBoards) || !sourceBoards.length) return false;
+      restored[z]=sourceBoards.map((sourceBoard)=>{
+        if(!Array.isArray(sourceBoard)) throw new Error("INVALID_SNAPSHOT_BOARD");
+        return Array.from({length:slotsPerBoard},(_,index)=>{
+          const row=sourceBoard[index];
+          if(row==null) return {code:"",name:"",spec:"",qty:""};
+          if(typeof row!=="object" || Array.isArray(row)) throw new Error("INVALID_SNAPSHOT_ROW");
+          return {
+            code:String(row.code??""),
+            name:String(row.name??""),
+            spec:String(row.spec??""),
+            qty:row.qty??""
+          };
+        });
+      });
+    }
+    for(let z=1;z<=4;z++) data[z]=restored[z];
+    offlineSnapshotMode=true;
+    render();
+    const stamp=parsed.savedAt?new Date(parsed.savedAt).toLocaleString("ko-KR"):"";
+    setStatus(`서버 연결 실패로 마지막 저장 화면${stamp?` (${stamp})`:""}을 읽기 전용으로 표시합니다. 새로고침 후 편집하세요.`,"warn");
+    return true;
+  }catch(err){ console.warn("로컬 스냅샷 복원 실패:",err); return false; }
+}
 
 
 function updateDbFreshnessLabel(){
@@ -172,13 +241,15 @@ function syncDbToolsVisibility(){
 
 async function apiPost(payload,{silent=false}={}){
   try{
-    const res=await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify(payload)});
+    const res=await fetchWithTimeout(SCRIPT_URL,{method:"POST",body:JSON.stringify(payload)});
     return await res.text();
   }catch(err){
     if(!silent) setStatus("네트워크 오류가 발생했습니다. 잠시 후 다시 시도하세요.","error");
-    try{
-      await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({action:"logClientError",area:payload&&payload.action||"unknown",message:err&&err.message||String(err),detail:JSON.stringify(payload||{}),ua:navigator.userAgent})});
-    }catch(_){ }
+    void fetchWithTimeout(
+      SCRIPT_URL,
+      {method:"POST",body:JSON.stringify({action:"logClientError",area:payload&&payload.action||"unknown",message:err&&err.message||String(err),detail:JSON.stringify(payload||{}),ua:navigator.userAgent})},
+      3000
+    ).catch(()=>{});
     throw err;
   }
 }
@@ -192,8 +263,8 @@ function collectBoardInventory(){
         if(!code) return;
         const qty=toNumber(row.qty);
         if(qty<=0) return;
-        const name=normalizeCode(row.name);
-        const spec=normalizeCode(row.spec);
+        const name=String(row.name||"").trim();
+        const spec=String(row.spec||"").trim();
         const displayName=[name,spec].filter(Boolean).join(' ').trim();
 
         if(!byCode[code]) byCode[code]={code,name:displayName,qty:0};
@@ -241,10 +312,18 @@ function showCellPreview(text,cellEl){
 function updateBoardIndicator(){
   const total=data[currentZone].length;
   if(currentBoardIndex>total-1) currentBoardIndex=Math.max(0,total-1);
-  const dots=[];
-  for(let i=0;i<total;i++) dots.push(i===currentBoardIndex?"●":"○");
   const el=document.getElementById("boardDots");
-  el.textContent=dots.join(" ");
+  el.innerHTML="";
+  for(let i=0;i<total;i++){
+    const btn=document.createElement("button");
+    btn.type="button";
+    btn.className=`board-dot${i===currentBoardIndex?" active":""}`;
+    btn.textContent=i===currentBoardIndex?"●":"○";
+    btn.setAttribute("aria-label",`현황판 ${i+1}로 이동`);
+    btn.dataset.boardIndex=String(i);
+    if(i===currentBoardIndex) btn.setAttribute("aria-current","page");
+    el.appendChild(btn);
+  }
   el.dataset.total=String(total);
 }
 
@@ -262,6 +341,14 @@ function syncEditControls(){
     if(!editMode || currentZone!==5){ el.style.display="none"; return; }
     el.style.display="inline-block";
   });
+
+  const editBtn=document.getElementById("editBtn");
+  if(editBtn){
+    editBtn.disabled=offlineSnapshotMode || isSaving;
+    editBtn.title=offlineSnapshotMode?"오프라인 스냅샷은 읽기 전용입니다.":"";
+    editBtn.classList.toggle("done-state",editMode);
+    if(!isSaving) editBtn.innerHTML=editMode?'<span class="btn-icon">✓</span>완료':'<span class="btn-icon">✎</span>편집';
+  }
 }
 
 function render(){
@@ -271,7 +358,7 @@ function render(){
   hideCellPreview();
   if(!editMode || currentZone===5) setEditorNavVisible(false);
 
-  const visibleFields=currentZone===5?["code","name","qty"]:["code","name","spec","qty"];
+  const visibleFields=currentZone===5?["code","name","dbQty","boardQty","qty"]:["code","name","spec","qty"];
 
   data[currentZone].forEach((board,boardIndex)=>{
     const boardDiv=document.createElement("div");
@@ -280,11 +367,11 @@ function render(){
 
     const title=document.createElement("div");
     title.className="board-title";
-    title.textContent=`현황판 ${boardIndex+1}`;
+    title.textContent=currentZone===5?`DB 비교 ${boardIndex+1}`:`현황판 ${boardIndex+1}`;
 
     const table=document.createElement("table");
-    const columns=currentZone===5?['코드','품명','재고']:['코드','품목','규격','재고'];
-    table.innerHTML=`<thead><tr>${columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody></tbody>`;
+    const columns=currentZone===5?['코드','품명','DB 재고','현황판 재고','차이(DB-현황판)']:['코드','품목','규격','재고'];
+    table.innerHTML=`<thead><tr>${columns.map(c=>`<th scope="col">${c}</th>`).join('')}</tr></thead><tbody></tbody>`;
     const tbody=table.querySelector("tbody");
 
     board.forEach((row,rowIndex)=>{
@@ -293,11 +380,13 @@ function render(){
         if(!haystack.includes(searchKeyword)) return;
       }
       const tr=document.createElement("tr");
-      const fields=currentZone===5?["code","name","qty"]:["code","name","spec","qty"];
-      fields.forEach(field=>{
+      const fields=currentZone===5?["code","name","dbQty","boardQty","qty"]:["code","name","spec","qty"];
+      fields.forEach((field,fieldIndex)=>{
         const td=document.createElement("td");
-        td.textContent=row[field];
-        td.title=String(row[field]||"");
+        td.textContent=row[field]??"";
+        td.title=String(row[field]??"");
+        td.tabIndex=0;
+        td.setAttribute("aria-label",`${columns[fieldIndex]}: ${String(row[field]??"비어 있음")}`);
         if(field==="qty"){ td.style.fontWeight="700"; td.style.fontSize="18px"; }
         if(currentZone===5 && field==="qty") {
           if(row.mismatchType==="dbOnly" || row.mismatchType==="slotOver") td.style.color="#c62828";
@@ -305,6 +394,12 @@ function render(){
           else td.style.color="#334155";
         }
         td.onclick=(e)=>handleSlotTap(e,td,boardIndex,rowIndex,field);
+        td.onkeydown=(e)=>{
+          if(e.key!=="Enter" && e.key!==" ") return;
+          e.preventDefault();
+          if(e.key==="Enter" && editMode && currentZone!==5 && !deleteModeActive) editCell(td,boardIndex,rowIndex,field);
+          else handleSlotTap(e,td,boardIndex,rowIndex,field);
+        };
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -333,34 +428,45 @@ function goToBoard(index,smooth=true){
 
 async function loadData({silent=false,rerender=true}={}){
   try{
-    for(let z=1;z<=4;z++) data[z]=[createBoard()];
-    const res=await fetch(SCRIPT_URL);
+    const nextData={};
+    for(let z=1;z<=4;z++) nextData[z]=[createBoard()];
+    const res=await fetchWithTimeout(SCRIPT_URL);
     const rows=await res.json();
     if(!Array.isArray(rows)) throw new Error("응답 형식 오류");
 
     rows.forEach(row=>{
       const z=Number(row.zone); const b=Number(row.board)-1; const s=Number(row.slot_no)-1;
-      if(!z || z===5 || b<0 || s<0 || s>=slotsPerBoard) return;
-      ensureBoard(z,b);
-      data[z][b][s]={code:row.code||"",name:row.name||"",spec:row.spec||"",qty:row.qty||""};
+      if(!Number.isInteger(z) || z<1 || z>4 || !Number.isInteger(b) || b<0 || !Number.isInteger(s) || s<0 || s>=slotsPerBoard) return;
+      ensureBoardIn(nextData,z,b);
+      nextData[z][b][s]={code:row.code||"",name:row.name||"",spec:row.spec||"",qty:row.qty??""};
     });
+
+    for(let z=1;z<=4;z++) data[z]=nextData[z];
 
     dbZoneLoaded=false;
     dbLastUpdatedAt="";
+    offlineSnapshotMode=false;
+    pendingDeleteRequest=null;
+    saveReadonlySnapshot();
     updateDbFreshnessLabel();
     if(rerender) render();
     if(!silent) setStatus("");
+    return true;
   }catch(err){
     console.error(err);
     if(!silent){
-      setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
-      return;
+      if(!restoreReadonlySnapshot()) setStatus("데이터 로드 실패: 웹앱 배포 URL/권한을 확인하세요.","error");
+      return false;
     }
     throw err;
   }
 }
 
-async function refreshFromServer({forceDb=false,showStatus=true}={}){
+async function refreshFromServer({forceDb=false,showStatus=true,allowUnsaved=false}={}){
+  if(!allowUnsaved && hasUnsavedChanges()){
+    if(showStatus) setStatus("저장하지 않은 변경사항이 있어 새로고침하지 않았습니다. 먼저 완료 버튼으로 저장하세요.","warn");
+    return false;
+  }
   if(manualRefreshInFlight) return false;
   manualRefreshInFlight=true;
   const zoneBefore=currentZone;
@@ -391,7 +497,6 @@ async function loadDbZoneData(forceRefresh=false){
   }
   dbZoneLoading=true;
   dbZoneLoadingPromise=(async()=>{
-    data[5]=[createBoard()];
     dbZoneLoadError="";
     try{
       const text=await apiPost({action:"getDbDiff",forceRefresh:!!forceRefresh});
@@ -415,16 +520,7 @@ async function loadDbZoneData(forceRefresh=false){
       }
 
       const boardByCode=collectBoardInventory();
-      const dbByCode={};
-      rows.forEach(row=>{
-        const code=normalizeCode(row.code);
-        if(!code) return;
-        dbByCode[code]={
-          code,
-          name:normalizeCode(row.name),
-          qty:toNumber(row.qty)
-        };
-      });
+      const dbByCode=GoodCore.aggregateByCode(rows);
 
       const mismatchRows=[];
 
@@ -440,6 +536,8 @@ async function loadDbZoneData(forceRefresh=false){
             code:dbRow.code,
             name:dbRow.name,
             spec:"",
+            dbQty:String(dbQty),
+            boardQty:String(boardQty),
             qty:String(diffQty),
             mismatchType:diffQty<0?"slotOver":"dbOnly"
           });
@@ -454,6 +552,8 @@ async function loadDbZoneData(forceRefresh=false){
           code:row.code,
           name:row.name,
           spec:"",
+          dbQty:"0",
+          boardQty:String(qty),
           qty:String(-qty),
           mismatchType:"slotOver"
         });
@@ -466,19 +566,18 @@ async function loadDbZoneData(forceRefresh=false){
         return a.code.localeCompare(b.code,'ko');
       });
 
-      dbZoneLoaded=true;
-      dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-      updateDbFreshnessLabel();
-      if(!mismatchRows.length){
-        return {ok:true,mismatchCount:0};
-      }
-
+      const nextDbData=[createBoard()];
       mismatchRows.forEach((row,idx)=>{
         const b=Math.floor(idx/slotsPerBoard);
         const s=idx%slotsPerBoard;
-        ensureBoard(5,b);
-        data[5][b][s]=row;
+        ensureBoardIn({5:nextDbData},5,b);
+        nextDbData[b][s]=row;
       });
+
+      data[5]=nextDbData;
+      dbZoneLoaded=true;
+      dbLastUpdatedAt=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      updateDbFreshnessLabel();
 
       return {ok:true,mismatchCount:mismatchRows.length};
     }catch(err){
@@ -503,7 +602,7 @@ function pushUndoSnapshot(zone,boardIndex,rowIndex,row){
     zone,
     boardIndex,
     rowIndex,
-    row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(row.qty||"")}
+    row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(row.qty??"")}
   });
   if(undoStack.length>50) undoStack.shift();
 }
@@ -602,12 +701,12 @@ function copySlot(){
   const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
 
   if(selectedSlot.zone===5){
-    clipboardData={type:"db",code:row.code||"",qty:String(toNumber(row.qty))};
-    setStatus("DB 데이터 복사 완료 (코드/재고)","ok");
+    clipboardData={type:"db",code:row.code||"",name:row.name||"",qty:String(toNumber(row.dbQty))};
+    setStatus("DB 데이터 복사 완료 (코드/품명/DB 재고)","ok");
     return;
   }
 
-  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(toNumber(row.qty))}};
+  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(row.qty??"")}};
   setStatus("슬롯 복사 완료","ok");
 }
 
@@ -616,7 +715,7 @@ function cutSlot(){
   if(selectedSlot.zone===5){ alert("DB구역에서는 잘라내기를 사용할 수 없습니다."); return; }
 
   const row=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
-  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(toNumber(row.qty))}};
+  clipboardData={type:"full",row:{code:row.code||"",name:row.name||"",spec:row.spec||"",qty:String(row.qty??"")}};
 
   pushUndoSnapshot(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex,row);
   clearRow(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
@@ -630,15 +729,22 @@ function pasteSlot(){
   if(!clipboardData){ alert("클립보드가 비어있습니다. 먼저 복사/잘라내기를 하세요."); return; }
 
   const target=data[selectedSlot.zone][selectedSlot.boardIndex][selectedSlot.rowIndex];
-  if(clipboardData.type==="db"){
-    target.code=clipboardData.code||"";
-    target.qty=String(toNumber(clipboardData.qty));
-  }else{
-    target.code=clipboardData.row.code||"";
-    target.name=clipboardData.row.name||"";
-    target.spec=clipboardData.row.spec||"";
-    target.qty=String(toNumber(clipboardData.row.qty));
+  const candidate=clipboardData.type==="db"
+    ? {code:clipboardData.code||"",name:clipboardData.name||"",spec:"",qty:String(clipboardData.qty??"")}
+    : {code:clipboardData.row.code||"",name:clipboardData.row.name||"",spec:clipboardData.row.spec||"",qty:String(clipboardData.row.qty??"")};
+  const validation=GoodCore.validateInventoryRow(candidate);
+  if(!validation.ok){
+    alert(validation.error);
+    setStatus(`붙여넣기 취소: ${validation.error}`,"error");
+    return;
   }
+  const hasExisting=[target.code,target.name,target.spec,target.qty].some(value=>String(value??"").trim()!=="");
+  if(hasExisting && !confirm("선택한 칸의 기존 내용을 덮어쓸까요?")) return;
+  pushUndoSnapshot(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex,target);
+  target.code=candidate.code;
+  target.name=candidate.name;
+  target.spec=candidate.spec;
+  target.qty=validation.text;
 
   markDirty(selectedSlot.zone,selectedSlot.boardIndex,selectedSlot.rowIndex);
   setStatus("붙여넣기 완료","ok");
@@ -667,19 +773,28 @@ function setEditorNavVisible(visible){
 }
 
 async function finishActiveEditor(){
+  if(activeEditor && activeEditor.committing) return activeEditor.commitPromise;
   editorCommitQueue=editorCommitQueue.then(async ()=>{
     const snapshot=activeEditor;
-    if(!snapshot) return;
+    if(!snapshot) return true;
     if(snapshot.committing) return snapshot.commitPromise;
 
     snapshot.committing=true;
     snapshot.commitPromise=(async ()=>{
-      const {boardIndex,rowIndex,field,oldValue,input,cell}=snapshot;
-      const ok=await processChange(boardIndex,rowIndex,field,oldValue,input.value.trim());
+      const {zone,boardIndex,rowIndex,field,oldValue,input,cell}=snapshot;
+      const ok=await processChange(zone,boardIndex,rowIndex,field,oldValue,input.value.trim());
+      if(!ok){
+        snapshot.committing=false;
+        snapshot.commitPromise=null;
+        input.setAttribute("aria-invalid","true");
+        setTimeout(()=>{ try{ input.focus(); input.select(); }catch(_){} },0);
+        return false;
+      }
       cell.classList.remove("editing-cell");
-      cell.textContent=ok?data[currentZone][boardIndex][rowIndex][field]:oldValue;
+      cell.textContent=data[zone][boardIndex][rowIndex][field];
       if(activeEditor===snapshot) activeEditor=null;
       setEditorNavVisible(false);
+      return true;
     })();
 
     return snapshot.commitPromise;
@@ -689,7 +804,7 @@ async function finishActiveEditor(){
 }
 
 function getFieldListForZone(zone){
-  return zone===5?["code","name","qty"]:["code","name","spec","qty"];
+  return zone===5?["code","name","dbQty","boardQty","qty"]:["code","name","spec","qty"];
 }
 
 function getCellByLocation(boardIndex,rowIndex,field){
@@ -708,7 +823,8 @@ async function moveEditor(delta){
   const fields=getFieldListForZone(currentZone);
   let {boardIndex,rowIndex,field}=activeEditor;
   let idx=fields.indexOf(field);
-  await finishActiveEditor();
+  const committed=await finishActiveEditor();
+  if(!committed) return;
 
   idx+=delta;
   while(idx<0){
@@ -730,38 +846,63 @@ async function moveEditor(delta){
 async function editCell(cell,boardIndex,rowIndex,field){
   if(cell.querySelector("input")) return;
   if(activeEditor && activeEditor.cell!==cell){
-    await finishActiveEditor();
+    const committed=await finishActiveEditor();
+    if(!committed) return;
   }
 
   const oldValue=data[currentZone][boardIndex][rowIndex][field];
   const input=document.createElement("input");
   input.value=oldValue; input.className="inline-edit";
+  if(field==="qty"){
+    input.inputMode="numeric";
+    input.pattern="[0-9]*";
+    input.min="0";
+    input.step="1";
+    input.setAttribute("aria-label","재고 수량");
+  }
   cell.classList.add("editing-cell");
   cell.textContent=""; cell.appendChild(input); input.focus();
-  activeEditor={cell,input,boardIndex,rowIndex,field,oldValue,committing:false};
+  activeEditor={zone:currentZone,cell,input,boardIndex,rowIndex,field,oldValue,committing:false};
+  input.oninput=()=>input.removeAttribute("aria-invalid");
   setEditorNavVisible(editMode && currentZone!==5);
   try{ cell.scrollIntoView({block:"center",inline:"nearest",behavior:"smooth"}); }catch(_){}
 
   input.onblur=()=>{ finishActiveEditor(); };
 }
 
-async function processChange(boardIndex,rowIndex,field,oldValue,newValue){
-  const row=data[currentZone][boardIndex][rowIndex];
+async function processChange(zone,boardIndex,rowIndex,field,oldValue,newValue){
+  const row=data[zone][boardIndex][rowIndex];
   if(field==="qty"){
-    if(!row.code){ alert("코드를 먼저 입력하세요"); return false; }
-    const diff=toNumber(newValue)-toNumber(oldValue);
+    const validation=GoodCore.validateInventoryRow({...row,qty:newValue});
+    if(!validation.ok){
+      alert(validation.error);
+      setStatus(validation.error,"error");
+      return false;
+    }
+    const oldParsed=GoodCore.parseQuantity(oldValue);
+    const oldQty=oldParsed.ok?oldParsed.value:0;
+    const diff=validation.value-oldQty;
     if(diff!==0){
       pendingLogs.push({
-        zone:currentZone,
+        zone,
         board:boardIndex+1,
         code:row.code,
         type:diff>0?"IN":"OUT",
         qty:Math.abs(diff)
       });
     }
+    row[field]=validation.text;
+  }else{
+    row[field]=newValue;
   }
-  row[field]=field==="qty"?String(toNumber(newValue)):newValue;
-  markDirty(currentZone,boardIndex,rowIndex);
+  const rowValidation=GoodCore.validateInventoryRow(row);
+  if(!rowValidation.ok){
+    row[field]=oldValue;
+    alert(rowValidation.error);
+    setStatus(rowValidation.error,"error");
+    return false;
+  }
+  markDirty(zone,boardIndex,rowIndex);
   return true;
 }
 
@@ -771,6 +912,7 @@ function setSavingState(saving){
   const editBtn=document.getElementById("editBtn");
   if(!editBtn) return;
   editBtn.classList.toggle("saving",isSaving);
+  editBtn.disabled=isSaving || offlineSnapshotMode;
   if(isSaving){
     editBtn.innerHTML='<span class="btn-icon">…</span>저장중';
   }else{
@@ -778,11 +920,29 @@ function setSavingState(saving){
   }
 }
 
+function hasUnsavedChanges(){
+  return !!activeEditor || Object.keys(dirtyMap).length>0 || pendingLogs.length>0;
+}
+
+function getSaveRequest(items){
+  const fingerprint=JSON.stringify({items,logs:pendingLogs});
+  if(!pendingBulkRequest || pendingBulkRequest.fingerprint!==fingerprint){
+    pendingBulkRequest={fingerprint,requestId:GoodCore.createRequestId()};
+  }
+  return pendingBulkRequest;
+}
+
 async function saveAll(){
+  const committed=await finishActiveEditor();
+  if(!committed){
+    editMode=true;
+    syncEditControls();
+    return false;
+  }
   setSavingState(true);
   try{
-    const keys=Object.keys(dirtyMap);
-    if(!keys.length && !pendingLogs.length) return;
+    const keys=Object.keys(dirtyMap).sort();
+    if(!keys.length && !pendingLogs.length) return true;
 
     const items=[];
     for(const key of keys){
@@ -800,61 +960,74 @@ async function saveAll(){
       });
     }
 
-    try{
-      const text=await apiPost({action:"bulkSave",items,logs:pendingLogs});
-
-      if(text==="NO_ACTION") throw new Error("BULK_NO_ACTION");
-
-      const json=JSON.parse(text);
-      if(json.status!=="OK") throw new Error("BULK_BAD_STATUS");
-
-      dirtyMap={};
-      pendingLogs=[];
-      redoStack=[];
-      dbZoneLoaded=false;
-      await refreshFromServer({forceDb:true,showStatus:false});
-      setStatus(`저장 완료 (수정 ${json.updated||0}, 생성 ${json.created||0}, 로그 ${json.logged||0}) · 동기화 완료`,"ok");
-      return;
-    }catch(err){
-      console.warn("bulkSave 실패, 개별 저장 fallback:",err);
-    }
-
-    // fallback: 기존 개별 저장 + 개별 로그
-    const failed=[];
-
-    for(const key of keys){
-      const [z,b,s]=key.split("-");
-      if(Number(z)===5) continue;
-      const row=data[z][b][s];
-      const text=await apiPost({action:"updateSlot",zone:Number(z),board:Number(b)+1,slot_no:Number(s)+1,code:row.code,name:row.name,spec:row.spec,qty:row.qty});
-      if(text!=="UPDATED"&&text!=="CREATED") failed.push(`${key}:${text}`);
-    }
-
-    for(const log of pendingLogs){
-      const text=await apiPost({action:"logUsage",zone:log.zone,board:log.board,code:log.code,type:log.type,qty:log.qty});
-      if(text!=="LOGGED") failed.push(`LOG:${log.code}:${text}`);
-    }
-
-    if(failed.length){
-      if(failed.some(x=>x.endsWith(':NOT_FOUND'))){
-        setStatus("저장 실패: 서버가 해당 현황판 슬롯 행을 찾지 못했습니다. Apps Script를 최신 코드로 재배포하세요.","error");
-      }else{
-        setStatus(`저장 실패 ${failed.length}건: ${failed[0]}`,"error");
+    for(const item of items){
+      const validation=GoodCore.validateInventoryRow(item);
+      if(!validation.ok){
+        setStatus(`저장하지 못했습니다: ${item.zone}구역 ${item.board}번 현황판 ${item.slot_no}번 칸 — ${validation.error}`,"error");
+        editMode=true;
+        render();
+        return false;
       }
-      return;
+    }
+
+    const request=getSaveRequest(items);
+    let text;
+    try{
+      text=await apiPost({action:"bulkSave",requestId:request.requestId,items,logs:pendingLogs});
+    }catch(err){
+      console.warn("bulkSave 응답 확인 실패:",err);
+      setStatus("저장 결과를 확인하지 못했습니다. 같은 내용으로 다시 저장하면 중복 처리되지 않습니다.","error");
+      return false;
+    }
+
+    let result=null;
+    if(text!=="NO_ACTION"){
+      try{ result=JSON.parse(text); }
+      catch(err){
+        console.warn("bulkSave 응답 파싱 실패:",err,text);
+        setStatus("서버 응답을 해석하지 못해 저장 상태를 확정할 수 없습니다. 자동 개별 저장은 실행하지 않았습니다.","error");
+        return false;
+      }
+      if(!result || result.status!=="OK"){
+        setStatus(`저장 거부: ${(result&&result.message)||"서버에서 입력값을 확인하세요."}`,"error");
+        return false;
+      }
+    }
+
+    if(text==="NO_ACTION"){
+      setStatus("안전한 일괄 저장을 지원하지 않는 서버입니다. Apps Script를 먼저 재배포한 뒤 다시 저장하세요. 변경 내용은 이 화면에 유지됩니다.","error");
+      return false;
     }
 
     dirtyMap={};
     pendingLogs=[];
+    pendingBulkRequest=null;
+    redoStack=[];
     dbZoneLoaded=false;
-    await refreshFromServer({forceDb:true,showStatus:false});
-    setStatus("저장 완료 · 동기화 완료","ok");
+    saveReadonlySnapshot();
+    const refreshed=await refreshFromServer({forceDb:true,showStatus:false});
+    if(refreshed){
+      setStatus(`저장 완료 (수정 ${result.updated||0}, 생성 ${result.created||0}, 로그 ${result.logged||0}) · 최신 화면 반영 완료`,"ok");
+    }else{
+      setStatus("저장은 완료됐지만 최신 화면을 다시 불러오지 못했습니다. 네트워크 연결 후 새로고침하세요.","warn");
+    }
+    return true;
   }finally{
     setSavingState(false);
+    syncEditControls();
   }
 }
 
 async function addBoard(){
+  if(boardMutationInFlight) return;
+  if(hasUnsavedChanges()){
+    setStatus("저장하지 않은 변경사항이 있습니다. 먼저 완료 버튼으로 저장한 뒤 현황판을 추가하세요.","warn");
+    return;
+  }
+  boardMutationInFlight=true;
+  const addBtn=document.getElementById("addBoardBtn");
+  if(addBtn) addBtn.disabled=true;
+  try{
   const boardNo=data[currentZone].length+1;
   const text=await apiPost({action:"createBoard",zone:currentZone,board:boardNo});
   if(text!=="BOARD_CREATED"){
@@ -866,29 +1039,86 @@ async function addBoard(){
     return;
   }
   ensureBoard(currentZone,boardNo-1);
+  saveReadonlySnapshot();
   setStatus(`현황판 ${boardNo} 추가 완료`,"ok");
   render();
   goToBoard(boardNo-1);
+  }finally{
+    boardMutationInFlight=false;
+    if(addBtn) addBtn.disabled=false;
+  }
 }
 
 async function deleteCurrentBoard(){
+  if(boardMutationInFlight) return;
+  if(hasUnsavedChanges()){
+    setStatus("저장하지 않은 변경사항이 있어 현황판을 삭제하지 않았습니다. 먼저 완료 버튼으로 저장하세요.","warn");
+    return;
+  }
   if(data[currentZone].length<=1){ alert("현황판은 최소 1개가 필요합니다."); return; }
   const boardNo=currentBoardIndex+1;
   if(!confirm(`${currentZone}구역의 ${boardNo}번 현황판을 삭제할까요?`)) return;
-  const text=await apiPost({action:"deleteBoard",zone:currentZone,board:boardNo});
-  if(text!=="BOARD_DELETED"){
-    if(text==="NO_ACTION") setStatus("현황판 삭제는 현재 서버 배포에서 미지원입니다. Apps Script 재배포 후 사용하세요.","warn");
-    else setStatus(`현황판 삭제 실패: ${text}`,"error");
-    return;
+  const expectedFingerprint=GoodCore.boardFingerprint(data[currentZone][currentBoardIndex],slotsPerBoard);
+  const deleteFingerprint=`${currentZone}|${boardNo}|${expectedFingerprint}`;
+  if(!pendingDeleteRequest || pendingDeleteRequest.fingerprint!==deleteFingerprint){
+    pendingDeleteRequest={fingerprint:deleteFingerprint,requestId:GoodCore.createRequestId()};
   }
-  data[currentZone].splice(currentBoardIndex,1);
-  setStatus(`현황판 ${boardNo} 삭제 완료`,"ok");
-  render();
+  boardMutationInFlight=true;
+  const btn=document.getElementById("deleteBoardBtn");
+  if(btn) btn.disabled=true;
+  try{
+    const text=await apiPost({
+      action:"deleteBoardSafe",
+      zone:currentZone,
+      board:boardNo,
+      requestId:pendingDeleteRequest.requestId,
+      expectedFingerprint
+    });
+    if(text==="NO_ACTION"){
+      setStatus("안전한 현황판 삭제를 지원하지 않는 서버입니다. Apps Script 재배포 후 다시 시도하세요.","warn");
+      return;
+    }
+    let result;
+    try{ result=JSON.parse(text); }
+    catch(_){ setStatus("현황판 삭제 응답 형식이 올바르지 않습니다. 서버를 재배포해 주세요.","error"); return; }
+    if(!result || result.status!=="OK"){
+      if(result&&result.code==="MIN_BOARD") setStatus("현황판은 구역마다 최소 1개가 필요합니다.","warn");
+      else if(result&&result.code==="BOARD_NOT_FOUND") setStatus("다른 사용자가 현황판을 변경했습니다. 새로고침 후 다시 시도하세요.","warn");
+      else if(result&&result.code==="STALE_BOARD") setStatus("다른 사용자가 현황판을 변경해 삭제하지 않았습니다. 새로고침 후 다시 확인하세요.","warn");
+      else if(result&&result.code==="AMBIGUOUS_DELETE") setStatus("이전 삭제 요청의 처리 상태가 불확실합니다. 새로고침해 현황판을 확인하세요.","warn");
+      else setStatus(`현황판 삭제 실패: ${(result&&result.message)||"서버 응답을 확인하세요."}`,"error");
+      if(result&&["BOARD_NOT_FOUND","STALE_BOARD"].includes(result.code)) pendingDeleteRequest=null;
+      return;
+    }
+    pendingDeleteRequest=null;
+    undoStack=[];
+    redoStack=[];
+    selectedSlot=null;
+    activeEditor=null;
+    const refreshed=await refreshFromServer({forceDb:false,showStatus:false});
+    if(!refreshed){
+      data[currentZone].splice(currentBoardIndex,1);
+      currentBoardIndex=Math.min(currentBoardIndex,data[currentZone].length-1);
+      saveReadonlySnapshot();
+      render();
+      setStatus(`현황판 ${boardNo} 삭제는 완료됐지만 최신 목록을 불러오지 못했습니다.`,"warn");
+    }else{
+      setStatus(`현황판 ${boardNo} 삭제 완료`,"ok");
+    }
+  }finally{
+    boardMutationInFlight=false;
+    if(btn) btn.disabled=false;
+  }
 }
 
 document.getElementById("editBtn").onclick=async ()=>{
   if(isSaving) return;
   editMode=!editMode;
+  if(editMode && searchKeyword){
+    searchKeyword="";
+    document.getElementById("searchInput").value="";
+    setStatus("");
+  }
   hideCellPreview();
   if(!editMode || currentZone===5) setEditorNavVisible(false);
   const editBtn=document.getElementById("editBtn");
@@ -897,7 +1127,15 @@ document.getElementById("editBtn").onclick=async ()=>{
   if(!editMode){
     setDeleteMode(false);
     setEditorNavVisible(false);
-    await saveAll();
+    const saved=await saveAll();
+    if(saved===false){
+      editMode=true;
+      editBtn.innerHTML='<span class="btn-icon">✓</span>완료';
+      editBtn.classList.add("done-state");
+      syncEditControls();
+      syncTopBarLayout();
+      return;
+    }
   }
   render();
 };
@@ -933,7 +1171,7 @@ document.getElementById("refreshDbBtn").onclick=async ()=>{
   if(currentZone===5) render();
 };
 document.getElementById("boardWrapper").addEventListener("touchstart",(e)=>{
-  if(e.touches.length!==1 || editMode || isSaving || manualRefreshInFlight) return;
+  if(e.touches.length!==1 || editMode || isSaving || manualRefreshInFlight || hasUnsavedChanges()) return;
   if(window.scrollY>0) return;
   pullRefreshActive=true;
   pullRefreshTriggered=false;
@@ -958,18 +1196,35 @@ document.getElementById("boardWrapper").addEventListener("touchcancel",()=>{
   pullRefreshActive=false;
   pullRefreshTriggered=false;
 });
+function findSearchMatches(keyword){
+  if(!keyword) return [];
+  const fields=currentZone===5?["code","name","dbQty","boardQty","qty"]:["code","name","spec","qty"];
+  const matches=[];
+  data[currentZone].forEach((board,boardIndex)=>{
+    const count=board.reduce((sum,row)=>{
+      const haystack=fields.map(field=>String(row[field]??"")).join(" ").toLowerCase();
+      return sum+(haystack.includes(keyword)?1:0);
+    },0);
+    if(count) matches.push({boardIndex,count});
+  });
+  return matches;
+}
+
 document.getElementById("searchInput").addEventListener("input",(e)=>{
   searchKeyword=String(e.target.value||"").trim().toLowerCase();
+  const matches=findSearchMatches(searchKeyword);
+  if(matches.length) currentBoardIndex=matches[0].boardIndex;
+  else currentBoardIndex=0;
   render();
+  if(!searchKeyword) setStatus("");
+  else if(!matches.length) setStatus("검색 결과가 없습니다.","info");
+  else setStatus(`검색 결과 ${matches.reduce((sum,item)=>sum+item.count,0)}건 · ${matches.length}개 현황판`,"info");
 });
 
 document.getElementById("boardDots").onclick=(e)=>{
-  const total=data[currentZone].length;
-  if(total<=1) return;
-  const rect=e.currentTarget.getBoundingClientRect();
-  const ratio=(e.clientX-rect.left)/Math.max(rect.width,1);
-  const idx=Math.max(0,Math.min(total-1,Math.floor(ratio*total)));
-  goToBoard(idx);
+  const btn=e.target.closest(".board-dot");
+  if(!btn) return;
+  goToBoard(Number(btn.dataset.boardIndex));
 };
 
 document.getElementById("boardWrapper").addEventListener("scroll",()=>{
@@ -980,13 +1235,19 @@ document.getElementById("boardWrapper").addEventListener("scroll",()=>{
 
 document.querySelectorAll(".zone-btn").forEach(btn=>{
   btn.onclick=async ()=>{
-    document.querySelectorAll(".zone-btn").forEach(b=>b.classList.remove("active"));
+    const committed=await finishActiveEditor();
+    if(!committed) return;
+    document.querySelectorAll(".zone-btn").forEach(b=>{
+      b.classList.remove("active");
+      b.setAttribute("aria-selected","false");
+    });
     btn.classList.add("active");
+    btn.setAttribute("aria-selected","true");
     currentZone=Number(btn.dataset.zone);
-    currentBoardIndex=0;
+    const matches=findSearchMatches(searchKeyword);
+    currentBoardIndex=matches.length?matches[0].boardIndex:0;
     setEditorNavVisible(false);
     setDeleteMode(false);
-    activeEditor=null;
     if(currentZone!==5) updateDbFreshnessLabel();
 
     if(currentZone===5 && !dbZoneLoaded){
@@ -999,9 +1260,8 @@ document.querySelectorAll(".zone-btn").forEach(btn=>{
     }
 
     render();
-    goToBoard(0,false);
+    goToBoard(currentBoardIndex,false);
     if(currentZone===5 && dbZoneLoadError) setStatus(dbZoneLoadError,"warn");
-    else if(currentZone===5) setStatus("");
   };
 });
 
@@ -1041,6 +1301,11 @@ function registerServiceWorker(){
 }
 
 document.addEventListener("click",hideCellPreview);
+window.addEventListener("beforeunload",(event)=>{
+  if(!hasUnsavedChanges()) return;
+  event.preventDefault();
+  event.returnValue="";
+});
 setupPwaInstall();
 registerServiceWorker();
 loadData();
