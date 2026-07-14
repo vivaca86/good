@@ -10,17 +10,19 @@
 
 ## 2) 시트 구조 확인
 - `SLOTS` 시트: `zone, board, slot_no, code, name, spec, qty` 컬럼 순서
-- `USAGE_LOG` 시트 존재
+- `USAGE_LOG` 시트 존재 (`request_id` 7번째 열은 새 서버가 자동 생성)
 - `DB` 시트 존재(코드=B, 품명=C, 재고=F 컬럼 기준)
 - (선택) `APP_ERROR_LOG` 시트 존재
 
 ## 3) 정적 파일 배포
 - `index.html`
+- `core.js`
 - `manifest.webmanifest`
 - `service-worker.js`
 - `icons/icon.svg`
 
 같은 경로 기준으로 호스팅해야 하며, 루트 기준 상대경로(`./`)가 유지되어야 함.
+이번 버전은 안전한 일괄 저장/삭제 API를 요구하므로 **Apps Script를 먼저 재배포한 뒤** 위 정적 파일을 한 번에 배포해야 함. 구버전 서버에서는 변경 내용을 보존한 채 저장을 중단하고 재배포 안내를 표시함.
 
 ## 4) 브라우저/캐시 주의
 - `service-worker.js` 변경 시 `CACHE_NAME` 버전을 증가시켜 강제 갱신

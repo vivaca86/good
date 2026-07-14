@@ -1,7 +1,8 @@
-const CACHE_NAME = 'inventory-app-v1';
+const CACHE_NAME = 'inventory-app-v3';
 const APP_SHELL = [
   './',
   './index.html',
+  './core.js?v=20260714a',
   './manifest.webmanifest',
   './icons/icon.svg'
 ];
@@ -32,20 +33,34 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 문서 요청: 네트워크 실패 시 캐시 index fallback
+  if (req.method !== 'GET') {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  // 문서 요청: 최신 HTML을 우선하고 성공 응답은 다음 오프라인 실행을 위해 갱신한다.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(() => caches.match('./index.html'))
+      fetch(req).then(async (res) => {
+        if (res.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put('./index.html', res.clone());
+        }
+        return res;
+      }).catch(() => caches.match('./index.html'))
     );
     return;
   }
 
-  // 정적 리소스: 캐시 우선
-  event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-      const copy = res.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-      return res;
-    }))
-  );
+  // 정적 리소스: 즉시 캐시를 사용하되 백그라운드에서 최신 파일로 갱신한다.
+  const cachedResponse = caches.match(req);
+  const networkUpdate = fetch(req).then(async (res) => {
+    if (res.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(req, res.clone());
+    }
+    return res;
+  });
+  event.waitUntil(networkUpdate.then(() => undefined, () => undefined));
+  event.respondWith(cachedResponse.then((cached) => cached || networkUpdate));
 });
